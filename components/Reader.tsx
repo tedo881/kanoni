@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CommentToggle from "./CommentToggle";
@@ -53,20 +54,34 @@ function markAll(root: HTMLElement, q: string): HTMLElement[] {
   return out;
 }
 
+type LangSwitch = {
+  cur: { id: number; label: string };
+  other: { id: number; label: string };
+  map: Record<string, number>;
+};
+
 export default function Reader({
   docId,
   html,
   canons,
   inline = [],
   hasComm = false,
+  titles,
+  unit = "კანონი",
+  lang,
 }: {
   docId: number;
   html: string;
   canons: number[];
   inline?: number[];
   hasComm?: boolean;
+  titles?: string[];
+  unit?: string;
+  lang?: LangSwitch;
 }) {
+  const router = useRouter();
   const root = useRef<HTMLElement>(null);
+  const [fn, setFn] = useState<{ label: string; text: string } | null>(null);
   const [q, setQ] = useState("");
   const [marks, setMarks] = useState<HTMLElement[]>([]);
   const [cur, setCur] = useState(0);
@@ -164,6 +179,42 @@ export default function Reader({
     );
   };
 
+  // ძველ/ახალ ქართულ ტექსტს შორის გადართვა: ვრჩებით იმავე თავზე, რომელსაც ახლა ვკითხულობთ
+  const switchLang = () => {
+    if (!lang) return;
+    let cur = canons[0];
+    for (const n of canons) {
+      const el = document.getElementById(`k${n}`);
+      if (el && el.getBoundingClientRect().top <= 160) cur = n;
+    }
+    const mapped = lang.map[String(cur)] ?? 1;
+    const atTop = cur === canons[0] && window.scrollY < 300;
+    const qs = q.trim().length >= 2 ? `?q=${encodeURIComponent(q.trim())}` : "";
+    router.push(`/councils/${lang.other.id}${qs}${atTop ? "" : `#k${mapped}`}`);
+  };
+
+  // სქოლიოს ნომერზე დაჭერა: ტექსტი ჩნდება ქვემოთ, გადასვლის გარეშე
+  const onArticleClick = (e: React.MouseEvent) => {
+    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>(
+      "a[data-fn]",
+    );
+    if (!a) return;
+    e.preventDefault();
+    const id = a.dataset.fn!;
+    const note = root.current?.querySelector(`#fn-${id}`);
+    if (!note) return;
+    const label = id.startsWith("s") ? "*" + id.slice(1) : id;
+    const text = (note.textContent ?? "").replace(/^\s*\*?\d+\.\s*/, "");
+    setFn((f) => (f && f.label === label ? null : { label, text }));
+  };
+  useEffect(() => {
+    if (!fn) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setFn(null);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [fn]);
+  useEffect(() => setFn(null), [docId]);
+
   const html_ = useMemo(() => ({ __html: html }), [html]);
 
   return (
@@ -222,9 +273,31 @@ export default function Reader({
             ▼
           </button>
         </div>
+        {lang && (
+          <div className="lang-switch" role="group" aria-label="ტექსტის ენა">
+            {[lang.cur, lang.other]
+              .sort((a, b) => a.label.localeCompare(b.label, "ka"))
+              .map((l) =>
+                l.id === docId ? (
+                  <button
+                    key={l.id}
+                    className="on"
+                    aria-pressed="true"
+                    disabled
+                  >
+                    {l.label}
+                  </button>
+                ) : (
+                  <button key={l.id} aria-pressed="false" onClick={switchLang}>
+                    {l.label}
+                  </button>
+                ),
+              )}
+          </div>
+        )}
         {canons.length > 1 && (
           <select
-            aria-label="გადასვლა კანონზე"
+            aria-label={`გადასვლა: ${unit}`}
             defaultValue=""
             onChange={(e) => {
               jump(e.target.value);
@@ -232,11 +305,11 @@ export default function Reader({
             }}
           >
             <option value="" disabled>
-              კანონი…
+              {unit}…
             </option>
             {canons.map((n) => (
               <option key={n} value={n}>
-                კანონი {n}
+                {titles?.[n - 1] ? `${n}. ${titles[n - 1]}` : `${unit} ${n}`}
               </option>
             ))}
           </select>
@@ -265,7 +338,26 @@ export default function Reader({
           </button>
         </div>
       </div>
-      <article ref={root} className="prose" dangerouslySetInnerHTML={html_} />
+      <article
+        ref={root}
+        className={`prose${lang ? " mcire" : ""}`}
+        dangerouslySetInnerHTML={html_}
+        onClick={onArticleClick}
+        lang="ka"
+      />
+      {fn && (
+        <div className="fnpop" role="dialog" aria-label="სქოლიო">
+          <b>სქოლიო {fn.label}</b>
+          <button
+            className="mini-btn"
+            onClick={() => setFn(null)}
+            aria-label="დახურვა"
+          >
+            ✕
+          </button>
+          <p>{fn.text}</p>
+        </div>
+      )}
       {slots.map((s) => {
         const k = Number(s.dataset.k);
         return inlineSet.has(k)

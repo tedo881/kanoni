@@ -295,3 +295,23 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .comm-entry:target { border-left-color: var(--gold); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 55%, transparent); }
 .comm-entry h3 { margin: 0 0 8px; color: var(--primary-dark); font-size: 1.05rem; }
 :root[data-theme="dark"] .comm-entry h3 { color: var(--link); }
+
+/* ---------- მცირე სჯულის კანონი: ენის გადამრთველი, სქოლიოები ---------- */
+.reader-bar .lang-switch { display: inline-flex; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+.reader-bar .lang-switch button { font: inherit; font-size: 0.82rem; padding: 7px 12px; border: 0; background: transparent; color: #fff; cursor: pointer; white-space: nowrap; }
+.reader-bar .lang-switch button.on { background: #fff; color: var(--primary-dark); font-weight: 700; cursor: default; opacity: 1; }
+.reader-bar .lang-switch button:not(.on):hover { background: rgba(255,255,255,.2); }
+.prose p.ttl { text-align: center; font-size: 1.15em; margin: 0.8em 0 0; color: var(--primary-dark); }
+:root[data-theme="dark"] .prose p.ttl { color: var(--link); }
+.prose p.sep { text-align: center; color: var(--ink-soft); letter-spacing: 0.3em; }
+.prose sup.fn { font-size: 0.7em; line-height: 0; margin-left: 1px; }
+.prose sup.fn a { color: var(--link); text-decoration: none; font-weight: 700; padding: 0 2px; border-radius: 4px; }
+.prose sup.fn a:hover, .prose sup.fn a:focus-visible { background: color-mix(in srgb, var(--gold) 40%, transparent); }
+.prose .fnlist p.fnote { font-size: 0.86em; line-height: 1.55; margin-bottom: 0.6em; color: var(--ink-soft); text-align: left; scroll-margin-top: 140px; }
+.prose .fnlist p.fnote:target { background: color-mix(in srgb, var(--gold) 30%, transparent); }
+.fnpop { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(680px, calc(100% - 24px)); max-height: 46vh; overflow: auto; z-index: 60;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px 12px; box-shadow: 0 8px 30px rgba(0,0,0,.35); font-size: 0.92rem; line-height: 1.6; }
+.fnpop b { color: var(--primary-dark); }
+:root[data-theme="dark"] .fnpop b { color: var(--link); }
+.fnpop .mini-btn { float: right; }
+.fnpop p { margin: 6px 0 0; }

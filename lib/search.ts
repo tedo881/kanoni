@@ -1,4 +1,4 @@
-import { getChunks, getDocs, getDoc, canonHref, SOURCE_NAMES, type Chunk, type Doc } from "./data";
+import { getChunks, getDocs, getDoc, canonHref, unitName, SOURCE_NAMES, type Chunk, type Doc } from "./data";
 
 /* ------------------------------------------------------------------ ტოკენიზაცია
  * ქართული აგლუტინაციური ენაა (პრევერბები, ბრუნვის და მრავლობითის სუფიქსები), ამიტომ
@@ -6,9 +6,13 @@ import { getChunks, getDocs, getDoc, canonHref, SOURCE_NAMES, type Chunk, type D
  * "დაქორწინდა" ერთმანეთს ემთხვევა. */
 const WORD = /[ა-ჿ]+/g;
 
+/** ძველი ქართული ასოები თანამედროვეზე დაიყვანება (ჲ ამოვარდება, ჳ→ვ, ჴ→ხ, ჵ→ო, ჱ→ე, ჶ→ფ), რომ ძველი ტექსტი ახალი ორთოგრაფიით ძებნადი იყოს */
+const OLD_LETTERS: Record<string, string> = { "ჲ": "", "ჳ": "ვ", "ჴ": "ხ", "ჵ": "ო", "ჱ": "ე", "ჶ": "ფ" };
+const norm = (s: string) => s.replace(/[ჲჳჴჵჱჶ]/g, (c) => OLD_LETTERS[c]);
+
 export function features(text: string): string[] {
   const out: string[] = [];
-  for (const w of text.toLowerCase().match(WORD) ?? []) {
+  for (const w of norm(text.toLowerCase()).match(WORD) ?? []) {
     if (w.length <= 3) {
       out.push("w:" + w);
       continue;
@@ -128,8 +132,11 @@ function shortTitle(t: string) {
   return t.replace(/\s*საეკლესიო\s*/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function retrieve(query: string, opts: { groups?: number; maxChars?: number } = {}): Source[] {
+export function retrieve(query: string, opts: { groups?: number; maxChars?: number; includeOld?: boolean } = {}): Source[] {
   const ix = getIndex();
+  // ძველქართულენოვანი ტექსტები (დოკ. 46) მხოლოდ საძიებო გვერდზეა; ასისტენტი თანამედროვე ტექსტს იყენებს
+  const oldDocs = new Set((getDocs().docs as Doc[]).filter((d) => d.old).map((d) => d.id));
+  const skip = (c: Chunk) => !opts.includeOld && c.doc != null && oldDocs.has(c.doc);
   const maxGroups = opts.groups ?? 7;
   const maxChars = opts.maxChars ?? 18000;
   const hits = bm25(query, 60);
@@ -145,6 +152,7 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
   };
   const addChunk = (idx: number, score: number) => {
     const c = ix.chunks[idx];
+    if (skip(c)) return;
     if (c.src === "topic") {
       // თემატური სარჩევი: მასში მითითებულ კანონებს მივაკუთვნოთ ქულა
       const shown = (c.refs ?? []).flatMap((r) => r.canons.slice(0, 3).map((n) => ({ doc: r.doc, canon: n }))).slice(0, 8);
@@ -181,7 +189,9 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     let nikIdx = gr.nik.size ? [...gr.nik] : (ix.nikMap.get(key) ?? []).slice(0, 2);
     nikIdx = nikIdx.slice(0, 2);
     const passages: { head: string; text: string }[] = [];
-    for (const i of sjIdx.slice(0, 2)) passages.push({ head: "კანონის ტექსტი (დიდი სჯული)", text: ix.chunks[i].text });
+    const gdoc = gr.doc ? getDoc(gr.doc) : undefined;
+    const sjHead = gdoc?.group === "mcire" ? gdoc.title : "კანონის ტექსტი (დიდი სჯული)";
+    for (const i of sjIdx.slice(0, 2)) passages.push({ head: sjHead, text: ix.chunks[i].text });
     for (const i of nikIdx) {
       const c = ix.chunks[i];
       passages.push({ head: `ნიკოდიმოსის განმარტება (${SOURCE_NAMES[c.src].replace("ნიკოდიმოსი (მილაში), ", "")}, PDF გვ. ${c.page})`, text: c.text });
@@ -193,7 +203,10 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     used += size;
     const ref = ix.chunks[sjIdx[0] ?? nikIdx[0] ?? gr.first];
     const dt = shortTitle(docTitle(gr.doc) || ref?.title || "");
-    const label = gr.canon ? `${dt}, კანონი ${gr.canon}` : shortTitle(ref?.title ?? dt);
+    const secTitle = gr.canon ? gdoc?.titles?.[gr.canon - 1] : undefined;
+    const label = gr.canon
+      ? secTitle ? `${dt}, ${secTitle}` : `${dt}, ${unitName(gdoc)} ${gr.canon}`
+      : shortTitle(ref?.title ?? dt);
     sources.push({
       n: sources.length + 1,
       label,

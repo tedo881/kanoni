@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getDocs, type Doc, type Group } from "@/lib/data";
+import { getDocs, unitName, type Doc, type Group } from "@/lib/data";
 import Hero from "@/components/Hero";
 import Cross from "@/components/Cross";
 
@@ -11,7 +11,11 @@ export default function Councils() {
   const byId = new Map(docs.map((d) => [d.id, d]));
   return (
     <>
-      <Hero src="/img/hero-nicaea.webp" alt="ნიკეის I მსოფლიო კრების ხატი" title="დიდი სჯულის კანონი" />
+      <Hero
+        src="/img/hero-nicaea.webp"
+        alt="ნიკეის I მსოფლიო კრების ხატი"
+        title="დიდი სჯულის კანონი"
+      />
       {groups.map((g) => (
         <section key={g.id}>
           <div className="group-title">{g.title}</div>
@@ -24,7 +28,11 @@ export default function Councils() {
                     <Cross />
                     <span className="num">{id}</span>
                     {d.title}
-                    {d.canons.length > 1 && <span className="meta">{d.canons.length} კანონი</span>}
+                    {d.canons.length > 1 && (
+                      <span className="meta">
+                        {d.canons.length} {unitName(d)}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
