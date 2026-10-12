@@ -1,0 +1,138 @@
+import { retrieve, type Source } from "@/lib/search";
+import { complete, llmConfigured, llmIsLocal, streamChat, type Msg } from "@/lib/llm";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const SYSTEM = `შენ ხარ „დიდი სჯულის კანონის“ ასისტენტი — მართლმადიდებლური ეკლესიის კანონების მკითხველის დამხმარე.
+
+მკაცრი წესები:
+1. უპასუხე მხოლოდ მოწოდებული ფრაგმენტების საფუძველზე. ფრაგმენტები ორი სახისაა: „კანონის ტექსტი“ (დიდი სჯული, არსენ იყალთოელის თარგმანი) და „ნიკოდიმოსის (მილაშის) განმარტება“.
+2. ყოველი დებულების შემდეგ მიუთითე წყარო კვადრატულ ფრჩხილებში, მაგალითად [1] ან [2][3]. წყაროს ნომრები ემთხვევა ფრაგმენტების ნომრებს.
+3. თუ ფრაგმენტებში პასუხი არ ჩანს ან არასაკმარისია, პირდაპირ თქვი ეს. არასოდეს მოიგონო კანონის ნომერი, ციტატა ან განმარტება. არ დაამატო ცოდნა, რომელიც ფრაგმენტებში არ არის.
+4. კანონის ტექსტს ციტირებისას გადმოწერე ზუსტად, ბრჭყალებში, და მიუთითე კრება და კანონის ნომერი.
+5. განასხვავე, რას ამბობს თვით კანონი და რას განმარტავს ნიკოდიმოსი.
+6. თუ ფრაგმენტები ერთმანეთს არ ეთანხმება ან კანონები განსხვავებულ შემთხვევებს ეხება, აჩვენე ორივე.
+7. ქართულად, გასაგებად და მოკლედ (საჭიროების შემთხვევაში მოკლე სიით). არ დაწერო ზოგადი შესავალი და არ გაიმეორო ეს წესები.
+8. პასტორალურ, პირად ან სადავო საკითხებში ბოლოს ერთი წინადადებით შეახსენე, რომ კონკრეტული შემთხვევის გადასაწყვეტად საჭიროა სასულიერო პირთან კონსულტაცია.`;
+
+// დღიური საერთო ლიმიტი უფასო API-ს კვოტის დასაცავად (0 = გამორთული). სერვერულ გარემოში თითო ინსტანციაზე ითვლება.
+const day = { date: "", n: 0 };
+function dailyExceeded(): boolean {
+  const max = Number(process.env.DAILY_LIMIT ?? 400);
+  if (!max) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  if (day.date !== today) Object.assign(day, { date: today, n: 0 });
+  return ++day.n > max;
+}
+
+const hits = new Map<string, { n: number; reset: number }>();
+function limited(ip: string): boolean {
+  const max = Number(process.env.RATE_LIMIT_PER_10MIN ?? 30);
+  const now = Date.now();
+  const h = hits.get(ip);
+  if (!h || h.reset < now) {
+    hits.set(ip, { n: 1, reset: now + 10 * 60_000 });
+    return false;
+  }
+  return ++h.n > max;
+}
+
+function buildContext(sources: Source[]): string {
+  return sources
+    .map((s) => {
+      const body = s.passages.map((p) => (p.head ? `(${p.head})\n${p.text}` : p.text)).join("\n\n");
+      return `[${s.n}] ${s.label}\n${body}`;
+    })
+    .join("\n\n=====\n\n");
+}
+
+export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  if (limited(ip)) return Response.json({ error: "ძალიან ბევრი მოთხოვნაა. სცადეთ რამდენიმე წუთში." }, { status: 429 });
+
+  if (dailyExceeded()) {
+    return Response.json({ error: "დღევანდელი უფასო ლიმიტი ამოიწურა. სცადეთ ხვალ, ან გამოიყენეთ ძიება ცალკე გვერდზე." }, { status: 429 });
+  }
+
+  let body: { messages?: { role: string; content: string }[] };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "არასწორი მოთხოვნა" }, { status: 400 });
+  }
+  const history = (body.messages ?? [])
+    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .slice(-8)
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content.slice(0, 2000) }));
+  const lastUser = [...history].reverse().find((m) => m.role === "user");
+  if (!lastUser || !lastUser.content.trim()) return Response.json({ error: "კითხვა ცარიელია" }, { status: 400 });
+
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (o: unknown) => controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
+      try {
+        const configured = await llmConfigured();
+        const local = llmIsLocal();
+        // საძიებო მოთხოვნა: მოკლე გაგრძელების შემთხვევაში წინა კითხვასაც ვითვალისწინებთ
+        const userMsgs = history.filter((m) => m.role === "user");
+        let query = lastUser.content;
+        if (query.length < 40 && userMsgs.length > 1) query = userMsgs[userMsgs.length - 2].content + " " + query;
+
+        // ლოკალურ (პატარა) მოდელზე გაფართოება ნელია და ნაკლებად სარგებლიანი; ჩვეულებრივ ირთვება მხოლოდ ღრუბლოვან API-ზე
+        if (configured && (local ? process.env.QUERY_REWRITE === "1" : process.env.QUERY_REWRITE !== "0")) {
+          try {
+            const kw = await complete([
+              {
+                role: "system",
+                content:
+                  "მოგცემ კითხვას ქართულად. დაწერე 8-12 საძიებო სიტყვა ან მოკლე ფრაზა, რომლებიც ამ თემაზე გამოიყენება მართლმადიდებლური საეკლესიო კანონების ტექსტში (სამღვდელო პირთა წოდებები, ცოდვების და სასჯელების სახელწოდებები, სინონიმები, ძველი ქართული ფორმები). გამოიყენე მხოლოდ ქართული სიტყვები, გამოყავი მძიმით, სხვა არაფერი დაწერო.",
+              },
+              { role: "user", content: query },
+            ], 7000);
+            query += " " + kw.replace(/[^ა-ჿ\s,]/g, " ");
+          } catch {
+            /* გაფართოების გარეშეც ვაგრძელებთ */
+          }
+        }
+
+        const sources = retrieve(query, {
+          // ლოკალურ მოდელს მცირე კონტექსტი აქვს, ამიტომ ნაკლებ ფრაგმენტს ვაძლევთ
+          groups: local ? 4 : 7,
+          maxChars: Number(process.env.RAG_MAX_CHARS ?? (local ? 9000 : 18000)),
+        });
+        send({
+          type: "sources",
+          sources: sources.map(({ n, label, href, kind, excerpt }) => ({ n, label, href, kind, excerpt })),
+        });
+
+        if (!configured) {
+          send({
+            type: "info",
+            text: "AI მოდელი ჯერ არ არის ჩართული, ამიტომ ნაჩვენებია მხოლოდ მოძებნილი კანონები და განმარტებები. უფასოდ ჩასართავად დააინსტალირეთ Ollama და გაუშვით `npm run setup:ai` (იხ. README), ან ჩაწერეთ Gemini გასაღები .env.local-ში.",
+          });
+        } else if (!sources.length) {
+          send({ type: "delta", text: "ამ თემაზე შესაბამისი ადგილი ვერ ვიპოვე. სცადეთ სხვა სიტყვებით ან მიუთითეთ კონკრეტული კრება და კანონი." });
+        } else {
+          const msgs: Msg[] = [
+            { role: "system", content: SYSTEM },
+            ...history.slice(0, -1),
+            {
+              role: "user",
+              content: `ფრაგმენტები:\n\n${buildContext(sources)}\n\n-----\nკითხვა: ${lastUser.content}`,
+            },
+          ];
+          for await (const d of streamChat(msgs, req.signal)) send({ type: "delta", text: d });
+        }
+        send({ type: "done" });
+      } catch (e) {
+        send({ type: "error", message: e instanceof Error ? e.message : "უცნობი შეცდომა" });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" } });
+}
