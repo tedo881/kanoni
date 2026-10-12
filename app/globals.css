@@ -199,6 +199,8 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .notice { padding: 10px 13px; border-radius: 10px; background: var(--sunk); border: 1px dashed var(--line); color: var(--ink-soft); font-size: 0.88rem; }
 .error { border-color: #b3261e; color: #b3261e; }
 .composer { position: sticky; bottom: 0; background: linear-gradient(to top, var(--bg) 72%, transparent); padding: 14px 0 10px; margin-top: 18px; }
+.newchat { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-soft); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.newchat:hover { border-color: var(--primary); color: var(--link); }
 .composer form { display: flex; gap: 8px; align-items: flex-end; }
 .composer textarea { flex: 1; min-width: 0; resize: none; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); max-height: 160px; }
 .composer textarea:focus { border-color: var(--primary); outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent); }
