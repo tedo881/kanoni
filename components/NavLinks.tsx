@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 const LINKS = [
   { href: "/councils", label: "კრებები" },
@@ -9,12 +10,21 @@ const LINKS = [
   { href: "/search", label: "ძიება" },
   { href: "/assistant", label: "ასისტენტი" },
   { href: "/about", label: "შესახებ" },
-  //asdasdsa
 ];
 export default function NavLinks() {
   const path = usePathname();
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // ვიწრო ეკრანზე აქტიური განყოფილება ჩანდეს
+    const nav = ref.current;
+    const cur = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (nav && cur)
+      nav.scrollTo({
+        left: cur.offsetLeft - nav.clientWidth / 2 + cur.clientWidth / 2,
+      });
+  }, [path]);
   return (
-    <nav className="nav" aria-label="მთავარი ნავიგაცია">
+    <nav ref={ref} className="nav" aria-label="მთავარი ნავიგაცია">
       {LINKS.map((l) => (
         <Link
           key={l.href}

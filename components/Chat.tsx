@@ -2,8 +2,21 @@
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 
-type Src = { n: number; label: string; href?: string; kind: string; excerpt: string };
-type M = { role: "user" | "assistant"; content: string; sources?: Src[]; info?: string; error?: string; pending?: boolean };
+type Src = {
+  n: number;
+  label: string;
+  href?: string;
+  kind: string;
+  excerpt: string;
+};
+type M = {
+  role: "user" | "assistant";
+  content: string;
+  sources?: Src[];
+  info?: string;
+  error?: string;
+  pending?: boolean;
+};
 
 const SUGGESTIONS = [
   "შეუძლია თუ არა მღვდელს მეორედ დაქორწინება?",
@@ -14,12 +27,15 @@ const SUGGESTIONS = [
 
 function inline(text: string, msgIdx: number): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*|(?:\[\d+\])+)/g).map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
     if (/^(\[\d+\])+$/.test(part)) {
       return (
         <Fragment key={i}>
           {[...part.matchAll(/\[(\d+)\]/g)].map((m, k) => (
-            <a key={k} className="cite" href={`#src-${msgIdx}-${m[1]}`}>{m[1]}</a>
+            <a key={k} className="cite" href={`#src-${msgIdx}-${m[1]}`}>
+              {m[1]}
+            </a>
           ))}
         </Fragment>
       );
@@ -34,10 +50,30 @@ function Answer({ text, idx }: { text: string; idx: number }) {
     <>
       {blocks.map((b, i) => {
         const lines = b.split("\n").filter(Boolean);
-        if (lines.length && lines.every((l) => /^\s*([-*•]|\d+[.)])\s+/.test(l))) {
-          return <ul key={i}>{lines.map((l, j) => <li key={j}>{inline(l.replace(/^\s*([-*•]|\d+[.)])\s+/, ""), idx)}</li>)}</ul>;
+        if (
+          lines.length &&
+          lines.every((l) => /^\s*([-*•]|\d+[.)])\s+/.test(l))
+        ) {
+          return (
+            <ul key={i}>
+              {lines.map((l, j) => (
+                <li key={j}>
+                  {inline(l.replace(/^\s*([-*•]|\d+[.)])\s+/, ""), idx)}
+                </li>
+              ))}
+            </ul>
+          );
         }
-        return <p key={i}>{lines.map((l, j) => <Fragment key={j}>{j > 0 && <br />}{inline(l, idx)}</Fragment>)}</p>;
+        return (
+          <p key={i}>
+            {lines.map((l, j) => (
+              <Fragment key={j}>
+                {j > 0 && <br />}
+                {inline(l, idx)}
+              </Fragment>
+            ))}
+          </p>
+        );
       })}
     </>
   );
@@ -49,22 +85,45 @@ export default function Chat() {
   const [busy, setBusy] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const stick = useRef(true); // ქვემოთ ვართ? მაშინ პასუხს მივყვეთ, სხვა შემთხვევაში მომხმარებელს ხელს არ შევუშლით
 
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [msgs]);
+  useEffect(() => {
+    const onScroll = () => {
+      stick.current =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 220;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  useEffect(() => {
+    if (stick.current) bottom.current?.scrollIntoView({ block: "end" });
+  }, [msgs]);
 
   async function send(text: string) {
     const q = text.trim();
     if (!q || busy) return;
-    const history = [...msgs.filter((m) => !m.error), { role: "user", content: q } as M];
+    const history = [
+      ...msgs.filter((m) => !m.error),
+      { role: "user", content: q } as M,
+    ];
     setMsgs([...history, { role: "assistant", content: "", pending: true }]);
     setInput("");
+    if (area.current) area.current.style.height = "auto";
+    stick.current = true;
     setBusy(true);
     const ctl = (abort.current = new AbortController());
-    const patch = (fn: (m: M) => M) => setMsgs((all) => all.map((m, i) => (i === all.length - 1 ? fn(m) : m)));
+    const patch = (fn: (m: M) => M) =>
+      setMsgs((all) => all.map((m, i) => (i === all.length - 1 ? fn(m) : m)));
     try {
       const res = await fetch("/api/chat", {
-        method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history.map(({ role, content }) => ({ role, content })) }),
+        method: "POST",
+        signal: ctl.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: history.map(({ role, content }) => ({ role, content })),
+        }),
       });
       if (!res.ok || !res.body) {
         const j = await res.json().catch(() => ({}));
@@ -83,14 +142,18 @@ export default function Chat() {
           buf = buf.slice(nl + 1);
           if (!line) continue;
           const ev = JSON.parse(line);
-          if (ev.type === "sources") patch((m) => ({ ...m, sources: ev.sources }));
-          else if (ev.type === "delta") patch((m) => ({ ...m, content: m.content + ev.text }));
+          if (ev.type === "sources")
+            patch((m) => ({ ...m, sources: ev.sources }));
+          else if (ev.type === "delta")
+            patch((m) => ({ ...m, content: m.content + ev.text }));
           else if (ev.type === "info") patch((m) => ({ ...m, info: ev.text }));
-          else if (ev.type === "error") patch((m) => ({ ...m, error: ev.message }));
+          else if (ev.type === "error")
+            patch((m) => ({ ...m, error: ev.message }));
         }
       }
     } catch (e) {
-      if ((e as Error).name !== "AbortError") patch((m) => ({ ...m, error: (e as Error).message }));
+      if ((e as Error).name !== "AbortError")
+        patch((m) => ({ ...m, error: (e as Error).message }));
     } finally {
       patch((m) => ({ ...m, pending: false }));
       setBusy(false);
@@ -102,7 +165,16 @@ export default function Chat() {
       {msgs.length === 0 && (
         <>
           <div className="chips" role="list">
-            {SUGGESTIONS.map((s) => <button key={s} className="chip" role="listitem" onClick={() => send(s)}>{s}</button>)}
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                className="chip"
+                role="listitem"
+                onClick={() => send(s)}
+              >
+                {s}
+              </button>
+            ))}
           </div>
         </>
       )}
@@ -110,11 +182,21 @@ export default function Chat() {
         {msgs.map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
             <div className="bubble">
-              {m.role === "user" ? m.content : (
+              {m.role === "user" ? (
+                m.content
+              ) : (
                 <>
-                  {m.content ? <Answer text={m.content} idx={i} /> : m.pending && !m.info && !m.error ? <span className="dots">ვეძებ კანონებში</span> : null}
+                  {m.content ? (
+                    <Answer text={m.content} idx={i} />
+                  ) : m.pending && !m.info && !m.error ? (
+                    <span className="dots">ვეძებ კანონებში</span>
+                  ) : null}
                   {m.info && <div className="notice">{m.info}</div>}
-                  {m.error && <div className="notice error" role="alert">{m.error}</div>}
+                  {m.error && (
+                    <div className="notice error" role="alert">
+                      {m.error}
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -136,20 +218,54 @@ export default function Chat() {
         ))}
         <div ref={bottom} />
       </div>
+      <p className="disclaimer">
+        პასუხი ეყრდნობა მხოლოდ მოძებნილ ფრაგმენტებს, მაგრამ შეიძლება შეიცავდეს
+        უზუსტობას — გადაამოწმეთ ციტირებული წყაროები. ეს არ არის ეკლესიის
+        ოფიციალური განმარტება.
+      </p>
       <div className="composer">
-        <form onSubmit={(e) => { e.preventDefault(); send(input); }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            send(input);
+          }}
+        >
           <textarea
-            rows={1} value={input} placeholder="დასვით კითხვა კანონებზე…" aria-label="კითხვა"
-            onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px"; }}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
+            ref={area}
+            rows={1}
+            value={input}
+            enterKeyHint="send"
+            placeholder="დასვით კითხვა…"
+            aria-label="კითხვა"
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height =
+                Math.min(e.target.scrollHeight, 160) + "px";
+            }}
+            onKeyDown={(e) => {
+              // კომპიუტერზე Enter აგზავნის; ტელეფონზე (ეკრანული კლავიატურა) Enter ახალ ხაზს ნიშნავს
+              const touch = window.matchMedia("(pointer: coarse)").matches;
+              if (e.key === "Enter" && !e.shiftKey && !touch) {
+                e.preventDefault();
+                send(input);
+              }
+            }}
           />
           {busy ? (
-            <button type="button" className="btn ghost" onClick={() => abort.current?.abort()}>შეწყვეტა</button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => abort.current?.abort()}
+            >
+              შეწყვეტა
+            </button>
           ) : (
-            <button className="btn" type="submit" disabled={!input.trim()}>გაგზავნა</button>
+            <button className="btn" type="submit" disabled={!input.trim()}>
+              გაგზავნა
+            </button>
           )}
         </form>
-        <p className="disclaimer">პასუხი ეყრდნობა მხოლოდ მოძებნილ ფრაგმენტებს, მაგრამ შეიძლება შეიცავდეს უზუსტობას — გადაამოწმეთ ციტირებული წყაროები. ეს არ არის ეკლესიის ოფიციალური განმარტება.</p>
       </div>
     </>
   );
