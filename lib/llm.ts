@@ -42,7 +42,7 @@ export const llmIsLocal = () => {
   const p = providers()[0];
   return !!p && p.local && !p.key;
 };
-export const llmModel = () => providers()[0]?.model ?? "";
+export const llmModel = () => providers()[0]?.model.split(",")[0].trim() ?? "";
 
 const g = globalThis as unknown as { __llmProbe?: { at: number; ok: boolean } };
 
@@ -118,17 +118,34 @@ const geminiText = (j: any): string =>
   (j?.candidates?.[0]?.content?.parts ?? []).map((x: { text?: string }) => x.text ?? "").join("");
 
 /** ცდის პროვაიდერებს რიგით; გადადის შემდეგზე ლიმიტის (429), სერვერის (5xx), ავტორიზაციის (401/403) და ქსელის შეცდომისას */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * პროვაიდერებს რიგით ცდის. ყოველი პროვაიდერის MODEL შეიძლება იყოს მოდელების სია მძიმით გამოყოფილი
+ * (მაგ. `gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite`): პირველი გადატვირთულია (503/429) — შემდეგს ცდის.
+ * გადატვირთვის (503) შემთხვევაში იგივე მოდელს ერთხელ კიდევ ცდის მცირე პაუზის შემდეგ.
+ */
 async function call(messages: Msg[], stream: boolean, signal?: AbortSignal) {
   const ps = providers().filter((p) => p.key || p.local);
   let last: unknown = new LlmError("AI მოდელი არ არის მიერთებული");
   const errs: string[] = [];
   for (const p of ps) {
-    try {
-      return await callOne(p, messages, stream, signal);
-    } catch (e) {
-      if (signal?.aborted) throw e;
-      last = e;
-      errs.push(`[${p.model}] ${e instanceof Error ? e.message : String(e)}`);
+    const models = p.model.split(",").map((m) => m.trim()).filter(Boolean);
+    for (const model of models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          return await callOne({ ...p, model }, messages, stream, signal);
+        } catch (e) {
+          if (signal?.aborted) throw e;
+          last = e;
+          const st = e instanceof LlmError ? e.status : 0;
+          if (attempt === 1 || st !== 503) {
+            errs.push(`[${model}] ${e instanceof Error ? e.message : String(e)}`);
+            break;
+          }
+          await sleep(1200);
+        }
+      }
     }
   }
   if (errs.length > 1 && last instanceof LlmError) throw new LlmError(errs.join("  |  "), last.status);
