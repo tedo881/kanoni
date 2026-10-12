@@ -2,12 +2,15 @@
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 
+type Part = { comm: boolean; head: string; text: string };
 type Src = {
   n: number;
   label: string;
   href?: string;
   kind: string;
   excerpt: string;
+  commHref?: string;
+  parts?: Part[];
 };
 type M = {
   role: "user" | "assistant";
@@ -209,7 +212,25 @@ export default function Chat() {
                       <span className="badge">{s.n}</span>
                       {s.href ? <Link href={s.href}>{s.label}</Link> : s.label}
                     </div>
-                    <p>{s.excerpt}…</p>
+                    {s.parts?.length ? (
+                      s.parts.map((p, k) => (
+                        <div className={`part${p.comm ? " comm" : ""}`} key={k}>
+                          <span className="ph">
+                            {p.comm
+                              ? "ნიკოდიმოსის განმარტება"
+                              : "კანონის ტექსტი"}
+                          </span>
+                          <p>{p.text}…</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p>{s.excerpt}…</p>
+                    )}
+                    {s.commHref && (
+                      <Link className="more" href={s.commHref}>
+                        სრული განმარტება →
+                      </Link>
+                    )}
                   </div>
                 ))}
               </details>

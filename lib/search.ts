@@ -117,6 +117,7 @@ export type Source = {
   kind: "canon" | "commentary" | "topic";
   excerpt: string; // UI-სთვის
   passages: { head: string; text: string }[]; // LLM-ისთვის
+  commHref?: string; // ნიკოდიმოსის განმარტების გვერდი
   score: number;
 };
 
@@ -203,6 +204,7 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
           : `/councils/${gr.doc}/commentary${gr.canon ? `#n${gr.canon}` : ""}`,
       kind: sjIdx.length ? "canon" : "commentary",
       excerpt: passages[0].text.slice(0, 380),
+      commHref: gr.doc && nikIdx.length && getDoc(gr.doc)?.comm ? `/councils/${gr.doc}/commentary${gr.canon ? `#n${gr.canon}` : ""}` : undefined,
       passages,
       score: gr.score,
     });
