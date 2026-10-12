@@ -294,7 +294,7 @@ export default function Chat() {
                 Math.min(e.target.scrollHeight, 160) + "px";
             }}
             onKeyDown={(e) => {
-              // კომპიუტერზე Enter აგზავნის; ტელეფონზე (ეკრანული კლავიატურა) Enter ახალ ხაზს ნიშნავს
+              // კომპიუტერზე Enter აგზავნის; ტელეფონზე (ეკრანული კლავიატურა) Enter ახალ ხაზს ნიშნავს აქ ეერორებია
               const touch = window.matchMedia("(pointer: coarse)").matches;
               if (e.key === "Enter" && !e.shiftKey && !touch) {
                 e.preventDefault();
