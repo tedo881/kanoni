@@ -122,10 +122,10 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .toc { list-style: none; margin: 0 0 6px; padding: 0; background: var(--row); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; overflow: hidden; box-shadow: var(--shadow); }
 .toc a { position: relative; display: block; padding: 14px 44px 30px; text-align: center; font-weight: 700; font-size: 1.02rem; color: var(--ink); text-decoration: none; background: url(/img/divider.png) center bottom 6px / 100px auto no-repeat; }
 .toc a:hover { background-color: var(--sunk); }
-.toc a .cross { position: absolute; left: 14px; top: 16px; }
+.toc a .cross { position: absolute; left: 12px; top: 15px; }
 .toc .meta { display: block; margin-top: 2px; font-weight: 400; font-size: 0.78rem; color: var(--ink-soft); }
 .toc .num { position: absolute; right: 14px; top: 14px; font-size: 0.78rem; font-weight: 700; color: var(--ink-soft); }
-.cross { width: 12px; height: 18px; color: var(--gold-deep); flex: none; }
+.cross { width: 20px; height: 20px; color: var(--gold-deep); flex: none; }
 :root[data-theme="dark"] .cross { color: var(--gold); }
 
 /* ---- მკითხველი (Page2): მოქმედებათა ზოლი ინდიგოსფერია, ტექსტი თეთრ ფონზე */
