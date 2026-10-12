@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/search", label: "ძიება" },
   { href: "/assistant", label: "ასისტენტი" },
   { href: "/about", label: "შესახებ" },
+  //asdasdsa
 ];
 export default function NavLinks() {
   const path = usePathname();
