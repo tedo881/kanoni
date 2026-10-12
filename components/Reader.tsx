@@ -86,6 +86,7 @@ export default function Reader({
   const [marks, setMarks] = useState<HTMLElement[]>([]);
   const [cur, setCur] = useState(0);
   const [size, setSize] = useState(2);
+  const [sizeReady, setSizeReady] = useState(false); // შენახული ზომა წაკითხულია
   const [slots, setSlots] = useState<HTMLElement[]>([]);
   useEffect(() => {
     setSlots(
@@ -104,13 +105,15 @@ export default function Reader({
         JSON.stringify({ id: docId, t: Date.now() }),
       );
     } catch {}
+    setSizeReady(true);
   }, [docId]);
   useEffect(() => {
+    if (!sizeReady) return; // ნაგულისხმევი ზომა შენახულს არ გადაეწეროს (ტექსტი აღარ „ითამაშებს“)
     document.documentElement.style.setProperty("--reader-size", SIZES[size]);
     try {
       localStorage.setItem("kanoni:size", String(size));
     } catch {}
-  }, [size]);
+  }, [size, sizeReady]);
 
   // ძიებიდან მოსული სიტყვა (?q=...) ავტომატურად მოინიშნოს
   useEffect(() => {
