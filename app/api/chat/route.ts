@@ -101,8 +101,8 @@ export async function POST(req: Request) {
 
         const sources = retrieve(query, {
           // ლოკალურ მოდელს მცირე კონტექსტი აქვს, ამიტომ ნაკლებ ფრაგმენტს ვაძლევთ
-          groups: local ? 4 : 10,
-          maxChars: Number(process.env.RAG_MAX_CHARS ?? (local ? 9000 : 26000)),
+          groups: local ? 4 : 7,
+          maxChars: Number(process.env.RAG_MAX_CHARS ?? (local ? 9000 : 18000)),
         });
         send({
           type: "sources",
