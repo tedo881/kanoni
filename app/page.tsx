@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getDocs } from "@/lib/data";
 import ContinueReading from "@/components/ContinueReading";
+import InstallPrompt from "@/components/InstallPrompt";
 
 export default function Home() {
   const { docs: all } = getDocs();
@@ -14,6 +15,7 @@ export default function Home() {
   return (
     <>
       <div className="home-bg" aria-hidden="true" />
+      <InstallPrompt />
       <section className="home">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

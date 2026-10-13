@@ -319,3 +319,10 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 :root[data-theme="dark"] .fnpop b { color: var(--link); }
 .fnpop .mini-btn { float: right; }
 .fnpop p { margin: 6px 0 0; }
+
+/* აპლიკაციის დაყენების შეთავაზება */
+.install-bar { position: fixed; left: 12px; right: 12px; bottom: 12px; max-width: 480px; margin: 0 auto; z-index: 50; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgb(18, 22, 74); color: #fff; border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45); font-size: 0.92rem; font-weight: 600; }
+.install-bar span { flex: 1; }
+.install-bar button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; }
+.install-bar .go { background: var(--gold, #ffd76a); color: #1a1a1a; padding: 8px 14px; font-weight: 700; }
+.install-bar .x { background: transparent; color: rgba(255, 255, 255, 0.8); padding: 6px 8px; }
