@@ -320,7 +320,10 @@ export default function Chat() {
               )}
             </div>
             {m.sources && m.sources.length > 0 && (
-              <details className="sources" open={!!m.info}>
+              <details
+                className="sources"
+                open={!!m.info || (!!m.error && !m.content)}
+              >
                 <summary>წყაროები ({m.sources.length})</summary>
                 {m.sources.map((s) => (
                   <div className="src" id={`src-${i}-${s.n}`} key={s.n}>

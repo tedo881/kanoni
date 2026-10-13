@@ -85,6 +85,11 @@ function geminiBody(messages: Msg[]) {
     ...(sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}),
     contents,
     generationConfig: { temperature: 0.2 },
+    // კანონებში ცოდვების, სასჯელების და მკვლელობის თემებია — ავტომატურმა ფილტრებმა პასუხი არ დაბლოკონ
+    safetySettings: ["HARASSMENT", "HATE_SPEECH", "SEXUALLY_EXPLICIT", "DANGEROUS_CONTENT"].map((c) => ({
+      category: `HARM_CATEGORY_${c}`,
+      threshold: "BLOCK_NONE",
+    })),
   };
 }
 
@@ -175,29 +180,98 @@ export async function complete(messages: Msg[], timeoutMs = 9000, onAttempt?: At
   }
 }
 
+/**
+ * პასუხის ნაკადი. თუ მოდელმა 200-ით დაგვიბრუნა, მაგრამ ტექსტი არ მოაწოდა (დაბლოკვა, მხოლოდ „ფიქრი“ და ა.შ.),
+ * ეს ჩავარდნად ითვლება და შემდეგ მოდელზე გადადის (სანამ მომხმარებელს რამე გავუგზავნეთ).
+ */
 export async function* streamChat(messages: Msg[], signal?: AbortSignal, onAttempt?: AttemptHook): AsyncGenerator<string> {
-  const { res, native } = await call(messages, true, signal, onAttempt);
-  const reader = res.body!.getReader();
-  const dec = new TextDecoder();
-  let buf = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    let nl: number;
-    while ((nl = buf.indexOf("\n")) >= 0) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line.startsWith("data:")) continue;
-      const payload = line.slice(5).trim();
-      if (payload === "[DONE]") return;
-      try {
-        const j = JSON.parse(payload);
-        const delta = native ? geminiText(j) : j?.choices?.[0]?.delta?.content;
-        if (delta) yield delta as string;
-      } catch {
-        /* არასრული JSON — გამოვტოვოთ */
+  const ps = providers().filter((p) => p.key || p.local);
+  if (!ps.length) throw new LlmError("AI მოდელი არ არის მიერთებული");
+  const errs: string[] = [];
+  let lastStatus = 0;
+  for (const p of ps) {
+    const models = p.model.split(",").map((m) => m.trim()).filter(Boolean);
+    for (const model of models) {
+      let cur = messages;
+      let softened = false;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let yielded = false;
+        try {
+          onAttempt?.(modelLabel(p.base, model));
+          const { res, native } = await callOne({ ...p, model }, cur, true, signal);
+          const meta = new Set<string>();
+          const reader = res.body!.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          const handle = (line: string): string => {
+            if (!line.startsWith("data:")) return "";
+            const payload = line.slice(5).trim();
+            if (!payload || payload === "[DONE]") return "";
+            try {
+              const j = JSON.parse(payload);
+              if (native) {
+                if (j?.promptFeedback?.blockReason) meta.add(`blockReason=${j.promptFeedback.blockReason}`);
+                const fr = j?.candidates?.[0]?.finishReason;
+                if (fr && fr !== "STOP") meta.add(`finishReason=${fr}`);
+                return geminiText(j);
+              }
+              const c = j?.choices?.[0];
+              if (c?.finish_reason && c.finish_reason !== "stop") meta.add(`finish_reason=${c.finish_reason}`);
+              if (c?.delta?.reasoning || c?.delta?.reasoning_content) meta.add("მხოლოდ მსჯელობა, ტექსტის გარეშე");
+              return (c?.delta?.content as string) || "";
+            } catch {
+              return ""; // არასრული JSON
+            }
+          };
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            let nl: number;
+            while ((nl = buf.indexOf("\n")) >= 0) {
+              const line = buf.slice(0, nl).trim();
+              buf = buf.slice(nl + 1);
+              const d = handle(line);
+              if (d) {
+                yielded = true;
+                yield d;
+              }
+            }
+          }
+          const tail = handle(buf.trim());
+          if (tail) {
+            yielded = true;
+            yield tail;
+          }
+          if (yielded) return;
+          const why = [...meta].join(", ");
+          // დაბლოკვა/„გადმოწერის“ ფილტრი: იმავე მოდელს ერთხელ კიდევ ვცდით, მოკლე ციტატებისა და საკუთარი სიტყვების მოთხოვნით
+          if (!softened && /RECITATION|SAFETY|PROHIBITED|content_filter/i.test(why)) {
+            softened = true;
+            errs.push(`[${model}] ცარიელი პასუხი (${why}) — ვიმეორებ შერბილებული მოთხოვნით`);
+            cur = messages.map((m, i) =>
+              i === messages.length - 1 && m.role === "user"
+                ? { ...m, content: m.content + "\n\n(შენიშვნა: პასუხი შეადგინე საკუთარი სიტყვებით და მხოლოდ მოკლე ციტატებით; დიდი ტექსტი სიტყვასიტყვით არ გადმოწერო.)" }
+                : m,
+            );
+            attempt = -1;
+            continue;
+          }
+          errs.push(`[${model}] ცარიელი პასუხი${why ? ` (${why})` : ""}`);
+          lastStatus = 0;
+          break; // შემდეგი მოდელი
+        } catch (e) {
+          if (signal?.aborted || yielded) throw e;
+          const st = e instanceof LlmError ? e.status : 0;
+          lastStatus = st;
+          if (attempt === 1 || st !== 503) {
+            errs.push(`[${model}] ${e instanceof Error ? e.message : String(e)}`);
+            break;
+          }
+          await sleep(1200);
+        }
       }
     }
   }
+  throw new LlmError(errs.join("  |  "), lastStatus);
 }
