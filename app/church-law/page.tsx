@@ -14,7 +14,7 @@ export default function ChurchLaw() {
   return (
     <>
       <Hero
-        src="/img/hero-nicaea.webp"
+        src="/img/sveti3.webp"
         alt=""
         title="საქართველოს ეკლესიის სამართალი"
       />
