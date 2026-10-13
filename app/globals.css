@@ -326,3 +326,11 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .install-bar button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; }
 .install-bar .go { background: var(--gold, #ffd76a); color: #1a1a1a; padding: 8px 14px; font-weight: 700; }
 .install-bar .x { background: transparent; color: rgba(255, 255, 255, 0.8); padding: 6px 8px; }
+
+/* ჩატის ეტაპები და ხელახლა ცდა */
+.stages { display: grid; gap: 3px; font-size: 0.86rem; color: var(--ink-soft); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+.stages .st.done { opacity: 0.8; }
+.notice.error { display: block; }
+.notice.error .retry { display: block; margin-top: 8px; padding: 7px 14px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.notice.error .retry:hover:not(:disabled) { background: rgba(127, 127, 127, 0.15); }
+.notice.error .retry:disabled { opacity: 0.5; cursor: default; }

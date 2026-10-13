@@ -125,7 +125,17 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * (მაგ. `gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite`): პირველი გადატვირთულია (503/429) — შემდეგს ცდის.
  * გადატვირთვის (503) შემთხვევაში იგივე მოდელს ერთხელ კიდევ ცდის მცირე პაუზის შემდეგ.
  */
-async function call(messages: Msg[], stream: boolean, signal?: AbortSignal) {
+/** მოდელის საჩვენებელი სახელი, მაგ. „Gemini 3.8 Flash“ ან „Groq · openai/gpt-oss-20b“ */
+export function modelLabel(base: string, model: string): string {
+  if (/^gemini-/i.test(model)) return model.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const prov = /groq/i.test(base) ? "Groq" : /openrouter/i.test(base) ? "OpenRouter" : /mistral/i.test(base) ? "Mistral"
+    : /generativelanguage/i.test(base) ? "Gemini" : isLocalUrl(base) ? "ლოკალური" : (() => { try { return new URL(base).hostname; } catch { return base; } })();
+  return `${prov} · ${model}`;
+}
+
+export type AttemptHook = (label: string) => void;
+
+async function call(messages: Msg[], stream: boolean, signal?: AbortSignal, onAttempt?: AttemptHook) {
   const ps = providers().filter((p) => p.key || p.local);
   let last: unknown = new LlmError("AI მოდელი არ არის მიერთებული");
   const errs: string[] = [];
@@ -134,6 +144,7 @@ async function call(messages: Msg[], stream: boolean, signal?: AbortSignal) {
     for (const model of models) {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
+          onAttempt?.(modelLabel(p.base, model));
           return await callOne({ ...p, model }, messages, stream, signal);
         } catch (e) {
           if (signal?.aborted) throw e;
@@ -152,11 +163,11 @@ async function call(messages: Msg[], stream: boolean, signal?: AbortSignal) {
   throw last;
 }
 
-export async function complete(messages: Msg[], timeoutMs = 9000): Promise<string> {
+export async function complete(messages: Msg[], timeoutMs = 9000, onAttempt?: AttemptHook): Promise<string> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const { res, native } = await call(messages, false, ctl.signal);
+    const { res, native } = await call(messages, false, ctl.signal, onAttempt);
     const j = await res.json();
     return native ? geminiText(j) : (j?.choices?.[0]?.message?.content ?? "");
   } finally {
@@ -164,8 +175,8 @@ export async function complete(messages: Msg[], timeoutMs = 9000): Promise<strin
   }
 }
 
-export async function* streamChat(messages: Msg[], signal?: AbortSignal): AsyncGenerator<string> {
-  const { res, native } = await call(messages, true, signal);
+export async function* streamChat(messages: Msg[], signal?: AbortSignal, onAttempt?: AttemptHook): AsyncGenerator<string> {
+  const { res, native } = await call(messages, true, signal, onAttempt);
   const reader = res.body!.getReader();
   const dec = new TextDecoder();
   let buf = "";

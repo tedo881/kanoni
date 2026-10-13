@@ -19,12 +19,16 @@ type M = {
   info?: string;
   error?: string;
   pending?: boolean;
+  stage?: "expand" | "search" | "ai";
+  expandModel?: string;
+  model?: string;
 };
 
 const SUGGESTIONS = [
   "შეუძლია თუ არა მღვდელს მეორედ დაქორწინება?",
   "რა სასჯელი ადევს ფულით ხელდასხმას (სიმონიას)?",
   "რამდენი ეპისკოპოსი აკურთხებს ახალ ეპისკოპოსს?",
+  "რას ამბობს ლაოდიკიის კრება შაბათისა და კვირის შესახებ?",
 ];
 
 function inline(text: string, msgIdx: number): ReactNode[] {
@@ -81,6 +85,51 @@ function Answer({ text, idx }: { text: string; idx: number }) {
   );
 }
 
+/** ძიებისა და დამუშავების ეტაპები პასუხის თავზე */
+function Steps({ m }: { m: M }) {
+  const order = { expand: 1, search: 2, ai: 3 } as const;
+  const cur = m.stage ? order[m.stage] : 0;
+  const writing = !!m.content;
+  const rows: { done: boolean; text: string }[] = [];
+  if (m.expandModel || m.stage === "expand") {
+    rows.push({
+      done: cur > 1,
+      text: `საძიებო სიტყვების გაფართოება AI-ს მიერ${m.expandModel ? `: ${m.expandModel}` : ""}`,
+    });
+  }
+  if (cur >= 2 || !m.stage) {
+    rows.push({
+      done: !!m.sources,
+      text: m.sources
+        ? `წყაროებში ძებნა (${m.sources.length} წყარო ნაპოვნია)`
+        : "ვეძებ წყაროებში",
+    });
+  }
+  if (cur >= 3) {
+    const failed = !!m.error && !writing;
+    const done = (writing || !m.pending) && !failed;
+    rows.push({
+      done,
+      text: `${failed ? "ვერ დამუშავდა" : done ? "დამუშავებულია" : "მუშავდება"} AI-ს მიერ${m.model ? `: ${m.model}` : ""}`,
+    });
+  }
+  if (!rows.length) return null;
+  return (
+    <div className="stages">
+      {rows.map((r, k) => (
+        <div key={k} className={`st${r.done ? " done" : ""}`}>
+          {r.done ? "✓ " : ""}
+          {r.done || !m.pending ? (
+            r.text
+          ) : (
+            <span className="dots">{r.text}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Chat() {
   const [msgs, setMsgs] = useState<M[]>([]);
   const [input, setInput] = useState("");
@@ -113,11 +162,11 @@ export default function Chat() {
     window.scrollTo({ top: 0 });
   }
 
-  async function send(text: string) {
+  async function send(text: string, base: M[] = msgs) {
     const q = text.trim();
     if (!q || busy) return;
     const history = [
-      ...msgs.filter((m) => !m.error),
+      ...base.filter((m) => !m.error),
       { role: "user", content: q } as M,
     ];
     setMsgs([...history, { role: "assistant", content: "", pending: true }]);
@@ -163,7 +212,14 @@ export default function Chat() {
           buf = buf.slice(nl + 1);
           if (!line) continue;
           const ev = JSON.parse(line);
-          if (ev.type === "sources")
+          if (ev.type === "stage") patch((m) => ({ ...m, stage: ev.stage }));
+          else if (ev.type === "model")
+            patch((m) =>
+              ev.for === "expand"
+                ? { ...m, expandModel: ev.label }
+                : { ...m, model: ev.label },
+            );
+          else if (ev.type === "sources")
             patch((m) => ({ ...m, sources: ev.sources }));
           else if (ev.type === "delta") {
             gotText = true;
@@ -211,15 +267,26 @@ export default function Chat() {
                 m.content
               ) : (
                 <>
-                  {m.content ? (
-                    <Answer text={m.content} idx={i} />
-                  ) : m.pending && !m.info && !m.error ? (
-                    <span className="dots">ვეძებ კანონებში</span>
-                  ) : null}
+                  {(m.stage || m.pending) && !m.info && <Steps m={m} />}
+                  {m.content ? <Answer text={m.content} idx={i} /> : null}
                   {m.info && <div className="notice">{m.info}</div>}
                   {m.error && (
                     <div className="notice error" role="alert">
                       {m.error}
+                      {i === msgs.length - 1 &&
+                        i > 0 &&
+                        msgs[i - 1].role === "user" && (
+                          <button
+                            type="button"
+                            className="retry"
+                            disabled={busy}
+                            onClick={() =>
+                              send(msgs[i - 1].content, msgs.slice(0, i - 1))
+                            }
+                          >
+                            ხელახლა ცდა
+                          </button>
+                        )}
                     </div>
                   )}
                 </>

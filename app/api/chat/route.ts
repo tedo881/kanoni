@@ -85,6 +85,7 @@ export async function POST(req: Request) {
         // ლოკალურ (პატარა) მოდელზე გაფართოება ნელია და ნაკლებად სარგებლიანი; ჩვეულებრივ ირთვება მხოლოდ ღრუბლოვან API-ზე
         if (configured && (local ? process.env.QUERY_REWRITE === "1" : process.env.QUERY_REWRITE !== "0")) {
           try {
+            send({ type: "stage", stage: "expand" });
             const kw = await complete([
               {
                 role: "system",
@@ -92,13 +93,14 @@ export async function POST(req: Request) {
                   "მოგცემ კითხვას ქართულად. დაწერე 8-12 საძიებო სიტყვა ან მოკლე ფრაზა, რომლებიც ამ თემაზე გამოიყენება მართლმადიდებლური საეკლესიო კანონების ტექსტში (სამღვდელო პირთა წოდებები, ცოდვების და სასჯელების სახელწოდებები, სინონიმები, ძველი ქართული ფორმები). გამოიყენე მხოლოდ ქართული სიტყვები, გამოყავი მძიმით, სხვა არაფერი დაწერო.",
               },
               { role: "user", content: query },
-            ], 7000);
+            ], 7000, (label) => send({ type: "model", for: "expand", label }));
             query += " " + kw.replace(/[^ა-ჿ\s,]/g, " ");
           } catch {
             /* გაფართოების გარეშეც ვაგრძელებთ */
           }
         }
 
+        send({ type: "stage", stage: "search" });
         const sources = retrieve(query, {
           // ლოკალურ მოდელს მცირე კონტექსტი აქვს, ამიტომ ნაკლებ ფრაგმენტს ვაძლევთ
           groups: local ? 4 : 7,
@@ -121,6 +123,7 @@ export async function POST(req: Request) {
         } else if (!sources.length) {
           send({ type: "delta", text: "ამ თემაზე შესაბამისი ადგილი ვერ ვიპოვე. სცადეთ სხვა სიტყვებით ან მიუთითეთ კონკრეტული კრება და კანონი." });
         } else {
+          send({ type: "stage", stage: "ai" });
           const msgs: Msg[] = [
             { role: "system", content: SYSTEM },
             ...history.slice(0, -1),
@@ -129,7 +132,7 @@ export async function POST(req: Request) {
               content: `ფრაგმენტები:\n\n${buildContext(sources)}\n\n-----\nკითხვა: ${lastUser.content}`,
             },
           ];
-          for await (const d of streamChat(msgs, req.signal)) send({ type: "delta", text: d });
+          for await (const d of streamChat(msgs, req.signal, (label) => send({ type: "model", for: "ai", label }))) send({ type: "delta", text: d });
         }
         send({ type: "done" });
       } catch (e) {
