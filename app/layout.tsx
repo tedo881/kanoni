@@ -8,7 +8,10 @@ import ThemeToggle from "@/components/ThemeToggle";
 import NavLinks from "@/components/NavLinks";
 
 export const metadata: Metadata = {
-  title: { default: "დიდი სჯულის კანონი", template: "%s · დიდი სჯულის კანონი" },
+  title: {
+    default: "საეკლესიო სამართალი",
+    template: "%s · საეკლესიო სამართალი",
+  },
   description:
     "მართლმადიდებელი ეკლესიის კანონები: მოციქულთა და კრებათა კანონები, წმინდა მამათა ეპისტოლეები, თემატური სარჩევი და AI ასისტენტი.",
   icons: { icon: "/icon.png", apple: "/icon.png" },
