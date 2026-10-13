@@ -8,7 +8,10 @@ import ThemeToggle from "@/components/ThemeToggle";
 import NavLinks from "@/components/NavLinks";
 
 export const metadata: Metadata = {
-  title: { default: "დიდი სჯულის კანონი", template: "%s · დიდი სჯულის კანონი" },
+  title: {
+    default: "საეკლესიო სამართალი",
+    template: "%s · საეკლესიო სამართალი",
+  },
   description:
     "მართლმადიდებელი ეკლესიის კანონები: მოციქულთა და კრებათა კანონები, წმინდა მამათა ეპისტოლეები, თემატური სარჩევი და AI ასისტენტი.",
   icons: { icon: "/icon.png", apple: "/icon.png" },
@@ -20,8 +23,7 @@ export const viewport: Viewport = {
 };
 
 const THEME_INIT = `try{var t=localStorage.getItem("kanoni:theme");if(t)document.documentElement.dataset.theme=t;var s=localStorage.getItem("kanoni:size");if(s)document.documentElement.style.setProperty("--reader-size",["0.95rem","1.03rem","1.125rem","1.3rem","1.55rem"][+s]||"1.125rem")}catch(e){}`;
-//asdasdasdas asd a da sd
-// dasd asds
+
 export default function RootLayout({
   children,
 }: {
@@ -36,8 +38,8 @@ export default function RootLayout({
         <header className="site-header">
           <div className="wrap">
             <Link href="/" className="brand">
-              <img src="/icon.png" alt="" width={30} height={30} />
-              დიდი სჯულის კანონი
+              <img src="/img/logo.png" alt="" width={34} height={34} />
+              საეკლესიო სამართალი
             </Link>
             <NavLinks />
             <ThemeToggle />

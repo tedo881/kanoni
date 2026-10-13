@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "დიდი სჯულის კანონი",
-    short_name: "სჯულის კანონი",
+    name: "საეკლესიო სამართალი",
+    short_name: "საეკლ. სამართალი",
     description: "მართლმადიდებელი ეკლესიის კანონები და AI ასისტენტი",
     start_url: "/",
     display: "standalone",
