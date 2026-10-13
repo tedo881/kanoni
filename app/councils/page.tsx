@@ -16,30 +16,32 @@ export default function Councils() {
         alt="ნიკეის I მსოფლიო კრების ხატი"
         title="დიდი სჯულის კანონი"
       />
-      {groups.map((g) => (
-        <section key={g.id}>
-          <div className="group-title">{g.title}</div>
-          <ol className="toc">
-            {g.docs.map((id) => {
-              const d = byId.get(id)!;
-              return (
-                <li key={id}>
-                  <Link href={`/councils/${id}`}>
-                    <Cross />
-                    <span className="num">{id}</span>
-                    {d.title}
-                    {d.canons.length > 1 && (
-                      <span className="meta">
-                        {d.canons.length} {unitName(d)}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      ))}
+      {groups
+        .filter((g) => g.id !== "churchlaw" && g.id !== "synod")
+        .map((g) => (
+          <section key={g.id}>
+            <div className="group-title">{g.title}</div>
+            <ol className="toc">
+              {g.docs.map((id) => {
+                const d = byId.get(id)!;
+                return (
+                  <li key={id}>
+                    <Link href={`/councils/${id}`}>
+                      <Cross />
+                      <span className="num">{id}</span>
+                      {d.title}
+                      {d.canons.length > 1 && (
+                        <span className="meta">
+                          {d.canons.length} {unitName(d)}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        ))}
     </>
   );
 }

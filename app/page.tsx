@@ -36,7 +36,7 @@ export default function Home() {
           მცირე სჯულის კანონი
           <small>ახალი და ძველი ქართული ტექსტი · სქოლიოებით</small>
         </Link>
-        <Link href="/councils/47" className="btn-grad">
+        <Link href="/church-law" className="btn-grad">
           საქართველოს ეკლესიის სამართალი
           <small>დებულება, შეთანხმებები, სინოდის ოქმები და განჩინებები</small>
         </Link>
