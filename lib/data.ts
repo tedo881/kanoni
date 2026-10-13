@@ -11,12 +11,13 @@ export type Doc = {
   // მცირე სჯულის კანონი: თავების სათაურები, ენა და მეორე (ძველი/ახალი) ტექსტზე გადასვლა
   titles?: string[];
   lang?: string;
+  unit?: string; // ნაწილის სახელი ჩამოსაშლელში („თავი“, „მუხლი“)
   old?: boolean; // ძველი ქართული ტექსტი (ჩატის წყაროებში არ მონაწილეობს)
   alt?: number;
   altMap?: Record<string, number>;
 };
 /** „თავი“ მცირე სჯულის კანონისთვის, „კანონი“ დანარჩენისთვის */
-export const unitName = (d?: Pick<Doc, "group">) => (d?.group === "mcire" ? "თავი" : "კანონი");
+export const unitName = (d?: Pick<Doc, "group" | "unit">) => d?.unit ?? (d?.group === "mcire" ? "თავი" : "კანონი");
 export type CommRef = { l: string; d: number | null; n: number[] };
 export type CommEntry = { n: number; p: number; v: number; t: string | null; r: string | null; x: CommRef[]; c: string[] };
 export type CommFile = { doc: number; vol: number; title: string; entries: CommEntry[] };

@@ -24,9 +24,21 @@ export default async function CouncilPage({
   const id = Number((await params).id);
   const doc = getDoc(id);
   if (!doc) notFound();
-  const mc = doc.group === "mcire";
-  const prev = mc ? undefined : getDoc(id - 1);
-  const next = mc ? undefined : getDoc(id + 1);
+  // მცირე სჯულის კანონში წინა/შემდეგი არ არის (ახალი/ძველი ტექსტის გადამრთველია); ეკლესიის სამართალში — ჯგუფის შიგნით
+  const grp = getDocs().groups.find((g: { id: string }) => g.id === doc.group);
+  const gi = grp ? grp.docs.indexOf(id) : -1;
+  const standalone = doc.group === "mcire";
+  const inGroup = doc.group === "churchlaw" || doc.group === "synod";
+  const prev = standalone
+    ? undefined
+    : inGroup
+      ? getDoc(grp.docs[gi - 1])
+      : getDoc(id - 1);
+  const next = standalone
+    ? undefined
+    : inGroup
+      ? getDoc(grp.docs[gi + 1])
+      : getDoc(id + 1);
   const alt = doc.alt ? getDoc(doc.alt) : undefined;
   return (
     <>

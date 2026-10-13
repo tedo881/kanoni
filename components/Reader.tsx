@@ -312,7 +312,12 @@ export default function Reader({
             </option>
             {canons.map((n) => (
               <option key={n} value={n}>
-                {titles?.[n - 1] ? `${n}. ${titles[n - 1]}` : `${unit} ${n}`}
+                {titles?.[n - 1]
+                  ? titles[n - 1].startsWith(unit) ||
+                    /^([IVXL]+|\d+)[.)]\s/.test(titles[n - 1])
+                    ? titles[n - 1]
+                    : `${n}. ${titles[n - 1]}`
+                  : `${unit} ${n}`}
               </option>
             ))}
           </select>

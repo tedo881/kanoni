@@ -190,7 +190,7 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     nikIdx = nikIdx.slice(0, 2);
     const passages: { head: string; text: string }[] = [];
     const gdoc = gr.doc ? getDoc(gr.doc) : undefined;
-    const sjHead = gdoc?.group === "mcire" ? gdoc.title : "კანონის ტექსტი (დიდი სჯული)";
+    const sjHead = gdoc && (gdoc.group === "mcire" || gdoc.group === "churchlaw" || gdoc.group === "synod") ? gdoc.title : "კანონის ტექსტი (დიდი სჯული)";
     for (const i of sjIdx.slice(0, 2)) passages.push({ head: sjHead, text: ix.chunks[i].text });
     for (const i of nikIdx) {
       const c = ix.chunks[i];

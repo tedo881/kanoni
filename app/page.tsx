@@ -4,7 +4,10 @@ import ContinueReading from "@/components/ContinueReading";
 
 export default function Home() {
   const { docs: all } = getDocs();
-  const docs = all.filter((d: { group: string }) => d.group !== "mcire");
+  const docs = all.filter(
+    (d: { group: string }) =>
+      d.group !== "mcire" && d.group !== "churchlaw" && d.group !== "synod",
+  );
   const titles = Object.fromEntries(
     all.map((d: { id: number; title: string }) => [d.id, d.title]),
   );
@@ -32,6 +35,10 @@ export default function Home() {
         <Link href="/councils/45" className="btn-grad">
           მცირე სჯულის კანონი
           <small>ახალი და ძველი ქართული ტექსტი · სქოლიოებით</small>
+        </Link>
+        <Link href="/councils/47" className="btn-grad">
+          საქართველოს ეკლესიის სამართალი
+          <small>დებულება, შეთანხმებები, სინოდის ოქმები და განჩინებები</small>
         </Link>
         <Link href="/nikodim" className="btn-grad">
           ნიკოდიმოს მილაშის განმარტებები
