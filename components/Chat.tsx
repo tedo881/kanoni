@@ -198,7 +198,12 @@ export default function Chat() {
     const BUSY_MSG = "სერვერი გადატვირთულია, სცადეთ მოგვიანებით.";
     let gotText = false,
       gotInfo = false,
-      failed = false;
+      failed = false,
+      sawDone = false;
+    const t0 = Date.now();
+    const seen: string[] = [];
+    let lastStage = "-",
+      lastModel = "-";
     const fail = (detail: unknown) => {
       failed = true;
       console.error("[chat] შეცდომა:", detail);
@@ -231,6 +236,10 @@ export default function Chat() {
           buf = buf.slice(nl + 1);
           if (!line) continue;
           const ev = JSON.parse(line);
+          seen.push(ev.type);
+          if (ev.type === "stage") lastStage = ev.stage;
+          if (ev.type === "model") lastModel = ev.label;
+          if (ev.type === "done") sawDone = true;
           if (ev.type === "stage") patch((m) => ({ ...m, stage: ev.stage }));
           else if (ev.type === "model")
             patch((m) =>
@@ -253,7 +262,9 @@ export default function Chat() {
       }
       // ცარიელი პასუხი (სერვისმა არაფერი დააბრუნა)
       if (!gotText && !gotInfo && !failed && !ctl.signal.aborted)
-        fail("ცარიელი პასუხი");
+        fail(
+          `ცარიელი პასუხი | ეტაპი=${lastStage} | მოდელი=${lastModel} | done=${sawDone} | ${Date.now() - t0}ms | ივენთები=${seen.join(",")}`,
+        );
     } catch (e) {
       if ((e as Error).name !== "AbortError") fail(e);
     } finally {
