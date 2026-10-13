@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "დღევანდელი უფასო ლიმიტი ამოიწურა. სცადეთ ხვალ, ან გამოიყენეთ ძიება ცალკე გვერდზე." }, { status: 429 });
   }
 
-  let body: { messages?: { role: string; content: string }[] };
+  let body: { messages?: { role: string; content: string }[]; context?: string };
   try {
     body = await req.json();
   } catch {
@@ -67,6 +67,8 @@ export async function POST(req: Request) {
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-8)
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content.slice(0, 2000) }));
+  // ხელახლა ცდა: უკვე მოძიებული ფრაგმენტები მოდის კლიენტიდან — ძიებას აღარ ვიმეორებთ
+  const reuse = typeof body.context === "string" && body.context.length > 0 && body.context.length <= 40000 ? body.context : null;
   const lastUser = [...history].reverse().find((m) => m.role === "user");
   if (!lastUser || !lastUser.content.trim()) return Response.json({ error: "კითხვა ცარიელია" }, { status: 400 });
 
@@ -83,7 +85,7 @@ export async function POST(req: Request) {
         if (query.length < 40 && userMsgs.length > 1) query = userMsgs[userMsgs.length - 2].content + " " + query;
 
         // ლოკალურ (პატარა) მოდელზე გაფართოება ნელია და ნაკლებად სარგებლიანი; ჩვეულებრივ ირთვება მხოლოდ ღრუბლოვან API-ზე
-        if (configured && (local ? process.env.QUERY_REWRITE === "1" : process.env.QUERY_REWRITE !== "0")) {
+        if (!reuse && configured && (local ? process.env.QUERY_REWRITE === "1" : process.env.QUERY_REWRITE !== "0")) {
           try {
             send({ type: "stage", stage: "expand" });
             const kw = await complete([
@@ -100,39 +102,75 @@ export async function POST(req: Request) {
           }
         }
 
-        send({ type: "stage", stage: "search" });
-        const sources = retrieve(query, {
-          // ლოკალურ მოდელს მცირე კონტექსტი აქვს, ამიტომ ნაკლებ ფრაგმენტს ვაძლევთ
-          groups: local ? 4 : 7,
-          maxChars: Number(process.env.RAG_MAX_CHARS ?? (local ? 9000 : 18000)),
-        });
-        send({
-          type: "sources",
-          sources: sources.map(({ n, label, href, kind, excerpt, commHref, passages }) => ({
-            n, label, href, kind, excerpt, commHref,
-            // ორივე სახის ფრაგმენტი ჩანდეს: კანონის ტექსტი და ნიკოდიმოსის განმარტება
-            parts: passages.map((p) => ({ comm: p.head.startsWith("ნიკოდიმოსის"), head: p.head.startsWith("კანონის ტექსტი") ? "კანონის ტექსტი" : p.head, text: p.text.slice(0, 300) })),
-          })),
-        });
+        let sources: ReturnType<typeof retrieve> = [];
+        let ctx = reuse ?? "";
+        if (!reuse) {
+          send({ type: "stage", stage: "search" });
+          sources = retrieve(query, {
+            // ლოკალურ მოდელს მცირე კონტექსტი აქვს, ამიტომ ნაკლებ ფრაგმენტს ვაძლევთ
+            groups: local ? 4 : 7,
+            maxChars: Number(process.env.RAG_MAX_CHARS ?? (local ? 9000 : 18000)),
+          });
+          ctx = sources.length ? buildContext(sources) : "";
+          send({
+            type: "sources",
+            ctx,
+            sources: sources.map(({ n, label, href, kind, excerpt, commHref, passages }) => ({
+              n, label, href, kind, excerpt, commHref,
+              // ორივე სახის ფრაგმენტი ჩანდეს: კანონის ტექსტი და ნიკოდიმოსის განმარტება
+              parts: passages.map((p) => ({ comm: p.head.startsWith("ნიკოდიმოსის"), head: p.head.startsWith("კანონის ტექსტი") ? "კანონის ტექსტი" : p.head, text: p.text.slice(0, 300) })),
+            })),
+          });
+        }
 
         if (!configured) {
           send({
             type: "info",
             text: "AI მოდელი ჯერ არ არის ჩართული, ამიტომ ნაჩვენებია მხოლოდ მოძებნილი კანონები და განმარტებები. უფასოდ ჩასართავად დააინსტალირეთ Ollama და გაუშვით `npm run setup:ai` (იხ. README), ან ჩაწერეთ Gemini გასაღები .env.local-ში.",
           });
-        } else if (!sources.length) {
+        } else if (!reuse && !sources.length) {
           send({ type: "delta", text: "ამ თემაზე შესაბამისი ადგილი ვერ ვიპოვე. სცადეთ სხვა სიტყვებით ან მიუთითეთ კონკრეტული კრება და კანონი." });
         } else {
           send({ type: "stage", stage: "ai" });
-          const msgs: Msg[] = [
-            { role: "system", content: SYSTEM },
-            ...history.slice(0, -1),
-            {
-              role: "user",
-              content: `ფრაგმენტები:\n\n${buildContext(sources)}\n\n-----\nკითხვა: ${lastUser.content}`,
-            },
-          ];
-          for await (const d of streamChat(msgs, req.signal, (label) => send({ type: "model", for: "ai", label }))) send({ type: "delta", text: d });
+          // თუ მასალა AI-სთვის ძალიან დიდია, თანმიმდევრულად ვამცირებთ (ბოლო, ნაკლებად შესაბამის წყაროებს ვაკლებთ)
+          const blocks = ctx.split("\n\n=====\n\n");
+          let nBlocks = blocks.length;
+          let done = false;
+          for (const keep of [1, 0.6, 0.35]) {
+            let used = 0;
+            const total = blocks.reduce((n, x) => n + x.length, 0);
+            const cut: string[] = [];
+            for (const blk of blocks) {
+              if (cut.length > 0 && used + blk.length > total * keep) break;
+              cut.push(blk);
+              used += blk.length;
+            }
+            if (keep < 1 && cut.length >= nBlocks) continue; // შემცირება არ მოხდა — იგივეს არ ვიმეორებთ
+            if (keep < 1) send({ type: "note", text: `მასალა AI-სთვის ძალიან დიდი აღმოჩნდა — ვამცირებ: ${blocks.length} წყაროდან ${cut.length} რჩება` });
+            nBlocks = cut.length;
+            const msgs: Msg[] = [
+              { role: "system", content: SYSTEM },
+              ...history.slice(0, -1),
+              {
+                role: "user",
+                content: `ფრაგმენტები:\n\n${cut.join("\n\n=====\n\n")}\n\n-----\nკითხვა: ${lastUser.content}`,
+              },
+            ];
+            let gotAny = false;
+            try {
+              for await (const d of streamChat(msgs, req.signal, (label) => send({ type: "model", for: "ai", label }))) {
+                gotAny = true;
+                send({ type: "delta", text: d });
+              }
+              done = true;
+              break;
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e);
+              const tooBig = /დააბრუნა 413|too large|too long|reduce your message|context length|maximum context|exceeds the maximum/i.test(msg);
+              if (gotAny || !tooBig || keep === 0.35 || req.signal.aborted) throw e;
+            }
+          }
+          if (!done) throw new Error("მასალის შემცირება ვერ მოხერხდა");
         }
         send({ type: "done" });
       } catch (e) {

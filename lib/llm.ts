@@ -159,7 +159,7 @@ async function call(messages: Msg[], stream: boolean, signal?: AbortSignal, onAt
       }
     }
   }
-  if (errs.length > 1 && last instanceof LlmError) throw new LlmError(errs.join("  |  "), last.status);
+  if (errs.length > 1) throw new LlmError(errs.join("  |  "), last instanceof LlmError ? last.status : 0);
   throw last;
 }
 

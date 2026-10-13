@@ -22,6 +22,8 @@ type M = {
   stage?: "expand" | "search" | "ai";
   expandModel?: string;
   model?: string;
+  ctx?: string;
+  notes?: string[];
 };
 
 const SUGGESTIONS = [
@@ -113,6 +115,8 @@ function Steps({ m }: { m: M }) {
       text: `${failed ? "ვერ დამუშავდა" : done ? "დამუშავებულია" : "მუშავდება"} AI-ს მიერ${m.model ? `: ${m.model}` : ""}`,
     });
   }
+  for (const n of m.notes ?? [])
+    rows.splice(Math.max(rows.length - 1, 0), 0, { done: true, text: n });
   if (!rows.length) return null;
   return (
     <div className="stages">
@@ -162,14 +166,28 @@ export default function Chat() {
     window.scrollTo({ top: 0 });
   }
 
-  async function send(text: string, base: M[] = msgs) {
+  async function send(
+    text: string,
+    base: M[] = msgs,
+    reuse?: { sources: Src[]; ctx: string },
+  ) {
     const q = text.trim();
     if (!q || busy) return;
     const history = [
       ...base.filter((m) => !m.error),
       { role: "user", content: q } as M,
     ];
-    setMsgs([...history, { role: "assistant", content: "", pending: true }]);
+    setMsgs([
+      ...history,
+      {
+        role: "assistant",
+        content: "",
+        pending: true,
+        ...(reuse
+          ? { sources: reuse.sources, ctx: reuse.ctx, stage: "ai" as const }
+          : {}),
+      },
+    ]);
     setInput("");
     if (area.current) area.current.style.height = "auto";
     stick.current = true;
@@ -193,6 +211,7 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: history.map(({ role, content }) => ({ role, content })),
+          ...(reuse ? { context: reuse.ctx } : {}),
         }),
       });
       if (!res.ok || !res.body) {
@@ -219,8 +238,10 @@ export default function Chat() {
                 ? { ...m, expandModel: ev.label }
                 : { ...m, model: ev.label },
             );
+          else if (ev.type === "note")
+            patch((m) => ({ ...m, notes: [...(m.notes ?? []), ev.text] }));
           else if (ev.type === "sources")
-            patch((m) => ({ ...m, sources: ev.sources }));
+            patch((m) => ({ ...m, sources: ev.sources, ctx: ev.ctx }));
           else if (ev.type === "delta") {
             gotText = true;
             patch((m) => ({ ...m, content: m.content + ev.text }));
@@ -281,7 +302,13 @@ export default function Chat() {
                             className="retry"
                             disabled={busy}
                             onClick={() =>
-                              send(msgs[i - 1].content, msgs.slice(0, i - 1))
+                              send(
+                                msgs[i - 1].content,
+                                msgs.slice(0, i - 1),
+                                m.sources?.length && m.ctx
+                                  ? { sources: m.sources, ctx: m.ctx }
+                                  : undefined,
+                              )
                             }
                           >
                             ხელახლა ცდა
