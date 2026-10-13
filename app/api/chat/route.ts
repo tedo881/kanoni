@@ -75,6 +75,7 @@ export async function POST(req: Request) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      const t0 = Date.now();
       const send = (o: unknown) => controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
       try {
         const configured = await llmConfigured();
@@ -158,7 +159,7 @@ export async function POST(req: Request) {
             ];
             let gotAny = false;
             try {
-              for await (const d of streamChat(msgs, req.signal, (label) => send({ type: "model", for: "ai", label }))) {
+              for await (const d of streamChat(msgs, req.signal, (label) => send({ type: "model", for: "ai", label }), { deadline: t0 + 54_000 })) {
                 gotAny = true;
                 send({ type: "delta", text: d });
               }
