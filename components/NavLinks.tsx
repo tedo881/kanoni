@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 const LINKS = [
   { href: "/councils", label: "კრებები" },
+  { href: "/church-law", label: "საქ. ეკლესია" },
   { href: "/nikodim", label: "განმარტებანი" },
   { href: "/parts", label: "თემატური" },
   { href: "/search", label: "ძიება" },
