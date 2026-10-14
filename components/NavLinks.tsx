@@ -21,12 +21,12 @@ export default function NavLinks({
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
-  // გვერდის შეცვლისას მენიუ დაიხუროს
+  // გვერდის შეცვლისას მენიუ დაიხუროს ასდას
   useEffect(() => {
     setOpen(false);
   }, [path]);
 
-  // Escape ან მენიუს გარეთ დაჭერა ხურავს
+  // Escape ან მენიუს გარეთ დაჭერა ხურავს და და ა
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
