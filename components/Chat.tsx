@@ -11,6 +11,7 @@ type Src = {
   excerpt: string;
   commHref?: string;
   parts?: Part[];
+  hidden?: boolean;
 };
 type M = {
   role: "user" | "assistant";
@@ -30,7 +31,6 @@ const SUGGESTIONS = [
   "შეუძლია თუ არა მღვდელს მეორედ დაქორწინება?",
   "რა სასჯელი ადევს ფულით ხელდასხმას (სიმონიას)?",
   "რამდენი ეპისკოპოსი აკურთხებს ახალ ეპისკოპოსს?",
-  "რას ამბობს ლაოდიკიის კრება შაბათისა და კვირის შესახებ?",
 ];
 
 function inline(text: string, msgIdx: number): ReactNode[] {
@@ -353,7 +353,7 @@ export default function Chat() {
                           <p>{p.text}…</p>
                         </div>
                       ))
-                    ) : (
+                    ) : s.hidden ? null : (
                       <p>{s.excerpt}…</p>
                     )}
                     {s.commHref && (

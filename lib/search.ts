@@ -1,4 +1,4 @@
-import { getChunks, getDocs, getDoc, canonHref, unitName, SOURCE_NAMES, type Chunk, type Doc } from "./data";
+import { getChunks, getDocs, getDoc, hiddenDocIds, canonHref, unitName, SOURCE_NAMES, type Chunk, type Doc } from "./data";
 
 /* ------------------------------------------------------------------ ტოკენიზაცია
  * ქართული აგლუტინაციური ენაა (პრევერბები, ბრუნვის და მრავლობითის სუფიქსები), ამიტომ
@@ -123,6 +123,7 @@ export type Source = {
   passages: { head: string; text: string }[]; // LLM-ისთვის
   commHref?: string; // ნიკოდიმოსის განმარტების გვერდი
   score: number;
+  hidden?: boolean; // ფარული წყარო: ტექსტი და ბმული მომხმარებელს არ ეჩვენება
 };
 
 const docTitle = (id: number | null | undefined): string =>
@@ -132,11 +133,13 @@ function shortTitle(t: string) {
   return t.replace(/\s*საეკლესიო\s*/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function retrieve(query: string, opts: { groups?: number; maxChars?: number; includeOld?: boolean } = {}): Source[] {
+export function retrieve(query: string, opts: { groups?: number; maxChars?: number; includeOld?: boolean; excludeHidden?: boolean } = {}): Source[] {
   const ix = getIndex();
   // ძველქართულენოვანი ტექსტები (დოკ. 46) მხოლოდ საძიებო გვერდზეა; ასისტენტი თანამედროვე ტექსტს იყენებს
   const oldDocs = new Set((getDocs().docs as Doc[]).filter((d) => d.old).map((d) => d.id));
-  const skip = (c: Chunk) => !opts.includeOld && c.doc != null && oldDocs.has(c.doc);
+  const hid = hiddenDocIds();
+  const skip = (c: Chunk) =>
+    (!opts.includeOld && c.doc != null && oldDocs.has(c.doc)) || (!!opts.excludeHidden && c.doc != null && hid.has(c.doc));
   const maxGroups = opts.groups ?? 7;
   const maxChars = opts.maxChars ?? 18000;
   const hits = bm25(query, 60);
@@ -170,6 +173,10 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     if (gr.first < 0) gr.first = idx;
   };
   for (const h of hits) addChunk(h.idx, h.score);
+  // ბუმისის წიგნი: თუ ძირითად ტოპ-60-ში არ მოხვდა, უფრო ღრმად ვეძებთ, რომ ყოველთვის შემოწმდეს
+  const isBoum = (doc?: number | null) => !!doc && getDoc(doc)?.group === "boumis";
+  const reserve = !opts.excludeHidden;
+  if (reserve) for (const h of bm25(query, 400)) if (isBoum(ix.chunks[h.idx].doc) && !hits.some((x) => x.idx === h.idx)) addChunk(h.idx, h.score);
   const top = hits[0]?.score ?? 10;
   const refs = directRefs(query);
   const pureRef = query.trim().split(/\s+/).length <= 4; // "მოციქულთა 35-ე კანონი"
@@ -181,7 +188,28 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     }
   }
 
-  const ranked = [...groups.entries()].sort((a, b) => b[1].score - a[1].score).slice(0, maxGroups);
+  const all = [...groups.entries()].sort((a, b) => b[1].score - a[1].score);
+  let ranked = all.slice(0, maxGroups);
+  if (reserve) {
+    // ყოველთვის: მინიმუმ 2 ბუმისის და 2 ნიკოდიმოსის (მილაშის) განმარტების ჯგუფი
+    const hasNik = (g: G, key: string) => g.nik.size > 0 || (ix.nikMap.get(key)?.length ?? 0) > 0;
+    const need = (pred: (e: [string, G]) => boolean, min: number) => {
+      const have = ranked.filter(pred).length;
+      const extra = all.filter((e) => pred(e) && !ranked.includes(e)).slice(0, Math.max(0, min - have));
+      for (const e of extra) {
+        let i = ranked.length - 1;
+        while (i >= 0 && protectedSet.has(ranked[i][0])) i--;
+        if (i >= 0) ranked[i] = e; else ranked.push(e);
+        protectedSet.add(e[0]);
+      }
+    };
+    const protectedSet = new Set<string>();
+    ranked.filter((e) => isBoum(e[1].doc)).forEach((e) => protectedSet.add(e[0]));
+    need((e) => isBoum(e[1].doc), 2);
+    ranked.filter((e) => hasNik(e[1], e[0]) && !isBoum(e[1].doc)).slice(0, 2).forEach((e) => protectedSet.add(e[0]));
+    need((e) => !isBoum(e[1].doc) && hasNik(e[1], e[0]), 2);
+    ranked.sort((a, b) => b[1].score - a[1].score);
+  }
   const sources: Source[] = [];
   let used = 0;
   for (const [key, gr] of ranked) {
@@ -190,7 +218,7 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     nikIdx = nikIdx.slice(0, 2);
     const passages: { head: string; text: string }[] = [];
     const gdoc = gr.doc ? getDoc(gr.doc) : undefined;
-    const sjHead = gdoc && (gdoc.group === "mcire" || gdoc.group === "churchlaw" || gdoc.group === "synod") ? gdoc.title : "კანონის ტექსტი (დიდი სჯული)";
+    const sjHead = gdoc && (gdoc.group === "mcire" || gdoc.group === "churchlaw" || gdoc.group === "synod" || gdoc.group === "boumis") ? gdoc.title : "კანონის ტექსტი (დიდი სჯული)";
     for (const i of sjIdx.slice(0, 2)) passages.push({ head: sjHead, text: ix.chunks[i].text });
     for (const i of nikIdx) {
       const c = ix.chunks[i];
@@ -207,16 +235,18 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     const label = gr.canon
       ? secTitle ? `${dt}, ${secTitle}` : `${dt}, ${unitName(gdoc)} ${gr.canon}`
       : shortTitle(ref?.title ?? dt);
+    const isHidden = !!gr.doc && hid.has(gr.doc);
     sources.push({
       n: sources.length + 1,
-      label,
-      href: !gr.doc
+      label: isHidden ? shortTitle(docTitle(gr.doc)) : label,
+      hidden: isHidden || undefined,
+      href: isHidden || !gr.doc
         ? undefined
         : sjIdx.length || !getDoc(gr.doc)?.comm
           ? canonHref(gr.doc, sjIdx.length ? gr.canon : null)
           : `/councils/${gr.doc}/commentary${gr.canon ? `#n${gr.canon}` : ""}`,
       kind: sjIdx.length ? "canon" : "commentary",
-      excerpt: passages[0].text.slice(0, 380),
+      excerpt: isHidden ? "" : passages[0].text.slice(0, 380),
       commHref: gr.doc && nikIdx.length && getDoc(gr.doc)?.comm ? `/councils/${gr.doc}/commentary${gr.canon ? `#n${gr.canon}` : ""}` : undefined,
       passages,
       score: gr.score,

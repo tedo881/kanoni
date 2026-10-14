@@ -22,7 +22,15 @@ export type CommRef = { l: string; d: number | null; n: number[] };
 export type CommEntry = { n: number; p: number; v: number; t: string | null; r: string | null; x: CommRef[]; c: string[] };
 export type CommFile = { doc: number; vol: number; title: string; entries: CommEntry[] };
 export type RefView = { label: string; doc: number | null; items: { n: number; href: string | null }[] };
-export type Group = { id: string; title: string; docs: number[] };
+export type Group = { id: string; title: string; docs: number[]; hidden?: boolean };
+/**
+ * ბუმისის წიგნის გადამრთველი:
+ *   false — დაფარულია (ძიებაში/სიებში არ ჩანს, AI კი იყენებს)
+ *   true  — ხილულია (/church-law-ზე, ძიებაში, წყაროების ამონარიდებში)
+ * შეცვალე და გააკეთე deploy. (გარემოს ცვლადი SHOW_BOUMIS=1 ასევე ჩართავს.)
+ */
+export const SHOW_BOUMIS = true;
+export const showHidden = () => SHOW_BOUMIS || process.env.SHOW_BOUMIS === "1";
 export type PartRef = { label: string; doc: number | null; canons: number[]; raw: string };
 export type PartChapter = { title: string; refs: PartRef[] };
 export type Part = { n: number; roman: string; title: string; chapters: PartChapter[] };
@@ -46,6 +54,18 @@ const cache: Cache = (g.__kanoniCache ??= { html: new Map(), comm: new Map() });
 export function getDocs() {
   return (cache.docs ??= JSON.parse(fs.readFileSync(path.join(DATA_DIR, "docs.json"), "utf-8")));
 }
+/** დოკუმენტები, რომლებიც ახლა დაფარულია (ფარული ჯგუფი და SHOW_BOUMIS ჩართული არ არის) */
+export function hiddenDocIds(): Set<number> {
+  const c = cache as Cache & { hid?: Set<number> };
+  if (!c.hid) {
+    const ids = new Set<number>();
+    if (!showHidden()) for (const gr of getDocs().groups as Group[]) if (gr.hidden) gr.docs.forEach((d) => ids.add(d));
+    c.hid = ids;
+  }
+  return c.hid;
+}
+export const isHiddenDoc = (id: number) => hiddenDocIds().has(id);
+
 export function getDoc(id: number): Doc | undefined {
   return getDocs().docs.find((d: Doc) => d.id === id);
 }

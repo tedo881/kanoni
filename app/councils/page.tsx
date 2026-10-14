@@ -17,7 +17,9 @@ export default function Councils() {
         title="დიდი სჯულის კანონი"
       />
       {groups
-        .filter((g) => g.id !== "churchlaw" && g.id !== "synod")
+        .filter(
+          (g) => g.id !== "churchlaw" && g.id !== "synod" && g.id !== "boumis",
+        )
         .map((g) => (
           <section key={g.id}>
             <div className="group-title">{g.title}</div>

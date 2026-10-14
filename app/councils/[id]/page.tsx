@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getDoc, getDocHtml, getDocs, unitName, type Doc } from "@/lib/data";
+import {
+  getDoc,
+  getDocHtml,
+  getDocs,
+  isHiddenDoc,
+  unitName,
+  type Doc,
+} from "@/lib/data";
 import Reader from "@/components/Reader";
 
 export function generateStaticParams() {
-  return (getDocs().docs as Doc[]).map((d) => ({ id: String(d.id) }));
+  return (getDocs().docs as Doc[])
+    .filter((d) => !isHiddenDoc(d.id))
+    .map((d) => ({ id: String(d.id) }));
 }
 export async function generateMetadata({
   params,
@@ -23,12 +32,15 @@ export default async function CouncilPage({
 }) {
   const id = Number((await params).id);
   const doc = getDoc(id);
-  if (!doc) notFound();
+  if (!doc || isHiddenDoc(id)) notFound();
   // მცირე სჯულის კანონში წინა/შემდეგი არ არის (ახალი/ძველი ტექსტის გადამრთველია); ეკლესიის სამართალში — ჯგუფის შიგნით
   const grp = getDocs().groups.find((g: { id: string }) => g.id === doc.group);
   const gi = grp ? grp.docs.indexOf(id) : -1;
   const standalone = doc.group === "mcire";
-  const inGroup = doc.group === "churchlaw" || doc.group === "synod";
+  const inGroup =
+    doc.group === "churchlaw" ||
+    doc.group === "synod" ||
+    doc.group === "boumis";
   const prev = standalone
     ? undefined
     : inGroup
@@ -43,7 +55,11 @@ export default async function CouncilPage({
   return (
     <>
       <div className="crumbs">
-        <Link href="/councils">← კრებები</Link>
+        {inGroup ? (
+          <Link href="/church-law">← საქართველოს ეკლესიის სამართალი</Link>
+        ) : (
+          <Link href="/councils">← კრებები</Link>
+        )}
       </div>
       <h1 className="reader-title">{doc.title}</h1>
       <Reader

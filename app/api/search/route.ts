@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams.get("q")?.slice(0, 300) ?? "";
   if (q.trim().length < 2) return Response.json({ results: [] });
-  const results = retrieve(q, { groups: 15, maxChars: 60000, includeOld: true }).map(({ n, label, href, kind, excerpt, passages }) => {
+  const results = retrieve(q, { groups: 15, maxChars: 60000, includeOld: true, excludeHidden: true }).map(({ n, label, href, kind, excerpt, passages }) => {
     // ფრაგმენტი, სადაც ნაპოვნი სიტყვა ჩანს
     let sn: string | null = null;
     for (const p of passages) { sn = snippet(p.text, q); if (sn) break; }
@@ -15,4 +15,3 @@ export async function GET(req: Request) {
   });
   return Response.json({ results });
 }
-//asdasdasdasdsd

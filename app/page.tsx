@@ -7,7 +7,10 @@ export default function Home() {
   const { docs: all } = getDocs();
   const docs = all.filter(
     (d: { group: string }) =>
-      d.group !== "mcire" && d.group !== "churchlaw" && d.group !== "synod",
+      d.group !== "mcire" &&
+      d.group !== "churchlaw" &&
+      d.group !== "synod" &&
+      d.group !== "boumis",
   );
   const titles = Object.fromEntries(
     all.map((d: { id: number; title: string }) => [d.id, d.title]),
