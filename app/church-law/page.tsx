@@ -1,18 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import {
-  getDocs,
-  isHiddenDoc,
-  unitName,
-  type Doc,
-  type Group,
-} from "@/lib/data";
+import { getDocs, unitName, type Doc, type Group } from "@/lib/data";
 import Hero from "@/components/Hero";
 import Cross from "@/components/Cross";
 
 export const metadata: Metadata = { title: "საქართველოს ეკლესიის სამართალი" };
 
-const GROUPS = ["churchlaw", "synod", "boumis"]; // „boumis“ ჩანს მხოლოდ თუ SHOW_BOUMIS=1
+const GROUPS = ["churchlaw", "synod"];
 
 export default function ChurchLaw() {
   const { groups, docs } = getDocs() as { groups: Group[]; docs: Doc[] };
@@ -20,15 +14,12 @@ export default function ChurchLaw() {
   return (
     <>
       <Hero
-        src="/img/sveti2.webp"
+        src="/img/sveti3.webp"
         alt=""
-        tall
         title="საქართველოს ეკლესიის სამართალი"
       />
       {groups
-        .filter(
-          (g) => GROUPS.includes(g.id) && g.docs.some((id) => !isHiddenDoc(id)),
-        )
+        .filter((g) => GROUPS.includes(g.id))
         .map((g) => (
           <section key={g.id}>
             <div className="group-title">

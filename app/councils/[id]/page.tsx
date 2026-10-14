@@ -55,7 +55,9 @@ export default async function CouncilPage({
   return (
     <>
       <div className="crumbs">
-        {inGroup ? (
+        {doc.group === "boumis" ? (
+          <Link href="/boumis">← კანონიკური სამართალი</Link>
+        ) : inGroup ? (
           <Link href="/church-law">← საქართველოს ეკლესიის სამართალი</Link>
         ) : (
           <Link href="/councils">← კრებები</Link>

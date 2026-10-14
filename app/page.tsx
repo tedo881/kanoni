@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDocs } from "@/lib/data";
+import { getDocs, isHiddenDoc, showHidden } from "@/lib/data";
 import ContinueReading from "@/components/ContinueReading";
 import InstallPrompt from "@/components/InstallPrompt";
 
@@ -13,7 +13,9 @@ export default function Home() {
       d.group !== "boumis",
   );
   const titles = Object.fromEntries(
-    all.map((d: { id: number; title: string }) => [d.id, d.title]),
+    all
+      .filter((d: { id: number }) => !isHiddenDoc(d.id))
+      .map((d: { id: number; title: string }) => [d.id, d.title]),
   );
   return (
     <>
@@ -45,6 +47,12 @@ export default function Home() {
           საქართველოს ეკლესიის სამართალი
           <small>დებულება, შეთანხმებები, სინოდის ოქმები და განჩინებები</small>
         </Link>
+        {showHidden() && (
+          <Link href="/boumis" className="btn-grad">
+            პანაიოტის ბუმისი, „კანონიკური სამართალი“
+            <small>სამეცნიერო სახელმძღვანელო · 14 თავი</small>
+          </Link>
+        )}
         <Link href="/nikodim" className="btn-grad">
           ნიკოდიმოს მილაშის განმარტებები
           <small>მართლმადიდებელი ეკლესიის კანონები · ტომი I და II</small>
