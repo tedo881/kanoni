@@ -180,15 +180,12 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .chat { display: flex; flex-direction: column; gap: 18px; margin-top: 8px; }
 .msg { display: flex; flex-direction: column; gap: 8px; }
 .msg.user { align-items: flex-end; }
-.bubble { overflow-wrap: anywhere; min-width: 0; }
 .bubble { max-width: 92%; padding: 12px 15px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .msg.user .bubble { background: linear-gradient(to bottom, var(--btn-top), var(--btn-bottom)); color: #fff; border-color: var(--primary-dark); border-bottom-right-radius: 4px; font-weight: 600; }
 .msg.assistant .bubble { border-top-left-radius: 4px; max-width: 100%; width: 100%; line-height: 1.75; }
-
+.bubble { overflow-wrap: anywhere; min-width: 0; }
 .bubble p { margin: 0 0 0.7em; } .bubble p:last-child { margin: 0; }
-
 .bubble ul { margin: 0 0 0.7em; padding-left: 1.2em; }
-
 .cite { display: inline-block; font-size: 0.72em; font-weight: 700; vertical-align: super; padding: 0 5px; margin: 0 1px; border-radius: 6px; background: var(--primary); color: #fff; text-decoration: none; line-height: 1.5; }
 .cite:hover { background: var(--gold); color: #222; }
 .sources { display: grid; gap: 8px; }
@@ -338,6 +335,7 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .notice.error .retry { display: block; margin-top: 8px; padding: 7px 14px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
 .notice.error .retry:hover:not(:disabled) { background: rgba(127, 127, 127, 0.15); }
 .notice.error .retry:disabled { opacity: 0.5; cursor: default; }
+
 /* წიგნის შეძენის ბლოკი და სქოლიოები */
 .buybook { max-width: 680px; margin: 0 auto 16px; padding: 10px 16px; border: 1px solid var(--line); border-left: 4px solid var(--primary); border-radius: 8px; background: color-mix(in srgb, var(--primary) 6%, transparent); font-size: .95em; }
 .buybook ul { margin: 6px 0 0; padding-left: 20px; }
@@ -345,3 +343,15 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .prose .fnotes p { margin: .3em 0; text-indent: 0; }
 .prose h4 { margin: 1.3em 0 .4em; font-size: 1.05em; color: var(--primary-dark); }
 :root[data-theme="dark"] .prose h4 { color: var(--link); }
+
+.prose figure.scheme { margin: 1.2em 0; text-align: center; }
+.prose figure.scheme img { max-width: 100%; height: auto; background: #fff; border: 1px solid var(--line, #ddd); border-radius: 8px; }
+
+.composer .field { position: relative; flex: 1; min-width: 0; display: flex; }
+.composer .field textarea { flex: 1; padding-right: 52px; }
+.composer .mic { position: absolute; right: 7px; bottom: 7px; width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary-dark); cursor: pointer; }
+.composer .mic:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 22%, var(--surface)); }
+.composer .mic:disabled { opacity: 0.5; cursor: default; }
+.composer .mic.on { background: #d93025; color: #fff; animation: micpulse 1.2s ease-in-out infinite; }
+@keyframes micpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(217, 48, 37, 0.45); } 50% { box-shadow: 0 0 0 7px rgba(217, 48, 37, 0); } }
+.mic-err { position: absolute; left: 0; right: 0; top: -22px; font-size: 0.8rem; color: #b3261e; text-align: center; pointer-events: none; }

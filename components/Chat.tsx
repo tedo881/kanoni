@@ -406,42 +406,44 @@ export default function Chat() {
             send(input);
           }}
         >
-          <textarea
-            ref={area}
-            rows={1}
-            value={input}
-            enterKeyHint="send"
-            placeholder="დასვით კითხვა…"
-            aria-label="კითხვა"
-            onChange={(e) => {
-              setInput(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height =
-                Math.min(e.target.scrollHeight, 160) + "px";
-            }}
-            onKeyDown={(e) => {
-              // კომპიუტერზე Enter აგზავნის; ტელეფონზე (ეკრანული კლავიატურა) Enter ახალ ხაზს ნიშნავს
-              const touch = window.matchMedia("(pointer: coarse)").matches;
-              if (e.key === "Enter" && !e.shiftKey && !touch) {
-                e.preventDefault();
-                send(input);
-              }
-            }}
-          />
-          <Mic
-            disabled={busy}
-            getValue={() => input}
-            setValue={(v) => {
-              setInput(v);
-              requestAnimationFrame(() => {
-                const a = area.current;
-                if (a) {
-                  a.style.height = "auto";
-                  a.style.height = Math.min(a.scrollHeight, 160) + "px";
+          <div className="field">
+            <textarea
+              ref={area}
+              rows={1}
+              value={input}
+              enterKeyHint="send"
+              placeholder="დასვით კითხვა…"
+              aria-label="კითხვა"
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height =
+                  Math.min(e.target.scrollHeight, 160) + "px";
+              }}
+              onKeyDown={(e) => {
+                // კომპიუტერზე Enter აგზავნის; ტელეფონზე (ეკრანული კლავიატურა) Enter ახალ ხაზს ნიშნავს
+                const touch = window.matchMedia("(pointer: coarse)").matches;
+                if (e.key === "Enter" && !e.shiftKey && !touch) {
+                  e.preventDefault();
+                  send(input);
                 }
-              });
-            }}
-          />
+              }}
+            />
+            <Mic
+              disabled={busy}
+              getValue={() => input}
+              setValue={(v) => {
+                setInput(v);
+                requestAnimationFrame(() => {
+                  const a = area.current;
+                  if (a) {
+                    a.style.height = "auto";
+                    a.style.height = Math.min(a.scrollHeight, 160) + "px";
+                  }
+                });
+              }}
+            />
+          </div>
           {busy ? (
             <button
               type="button"
