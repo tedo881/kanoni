@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 
 const LINKS = [
   { href: "/councils", label: "კრებები" },
-  { href: "/church-law", label: "სამართალი" },
-  { href: "/canon-law", label: "კანონიკური" },
-  { href: "/nikodim", label: "განმარტებანი" },
+  { href: "/church-law", label: "საქართველო" },
+  { href: "/canon-law", label: "სამართალი" },
+  { href: "/nikodim", label: "მილაში" },
   { href: "/parts", label: "თემატური" },
   { href: "/search", label: "ძიება" },
   { href: "/assistant", label: "ასისტენტი" },
