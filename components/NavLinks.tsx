@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 const LINKS = [
   { href: "/councils", label: "კრებები" },
   { href: "/church-law", label: "სამართალი" },
+  { href: "/canon-law", label: "კანონიკური" },
   { href: "/nikodim", label: "განმარტებანი" },
   { href: "/parts", label: "თემატური" },
   { href: "/search", label: "ძიება" },
@@ -21,12 +22,12 @@ export default function NavLinks({
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
-  // გვერდის შეცვლისას მენიუ დაიხუროს ასდას
+  // გვერდის შეცვლისას მენიუ დაიხუროს
   useEffect(() => {
     setOpen(false);
   }, [path]);
 
-  // Escape ან მენიუს გარეთ დაჭერა ხურავს და და ა
+  // Escape ან მენიუს გარეთ დაჭერა ხურავს
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -77,9 +78,9 @@ export default function NavLinks({
       >
         {(showBoumis
           ? [
-              ...LINKS.slice(0, 3),
+              ...LINKS.slice(0, 4),
               { href: "/boumis", label: "ბუმისი" },
-              ...LINKS.slice(3),
+              ...LINKS.slice(4),
             ]
           : LINKS
         ).map((l) => (

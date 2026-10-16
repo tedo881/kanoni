@@ -334,3 +334,10 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .notice.error .retry { display: block; margin-top: 8px; padding: 7px 14px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
 .notice.error .retry:hover:not(:disabled) { background: rgba(127, 127, 127, 0.15); }
 .notice.error .retry:disabled { opacity: 0.5; cursor: default; }
+/* წიგნის შეძენის ბლოკი და სქოლიოები */
+.buybook { max-width: 680px; margin: 0 auto 16px; padding: 10px 16px; border: 1px solid var(--line); border-left: 4px solid var(--primary); border-radius: 8px; background: color-mix(in srgb, var(--primary) 6%, transparent); font-size: .95em; }
+.buybook ul { margin: 6px 0 0; padding-left: 20px; }
+.prose .fnotes { margin: 1.4em 0 .6em; padding-top: .6em; border-top: 1px solid var(--line); font-size: .85em; opacity: .85; }
+.prose .fnotes p { margin: .3em 0; text-indent: 0; }
+.prose h4 { margin: 1.3em 0 .4em; font-size: 1.05em; color: var(--primary-dark); }
+:root[data-theme="dark"] .prose h4 { color: var(--link); }

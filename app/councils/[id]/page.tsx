@@ -10,6 +10,7 @@ import {
   type Doc,
 } from "@/lib/data";
 import Reader from "@/components/Reader";
+import BuyBook from "@/components/BuyBook";
 
 export function generateStaticParams() {
   return (getDocs().docs as Doc[])
@@ -40,7 +41,8 @@ export default async function CouncilPage({
   const inGroup =
     doc.group === "churchlaw" ||
     doc.group === "synod" ||
-    doc.group === "boumis";
+    doc.group === "boumis" ||
+    doc.group === "ekkanon";
   const prev = standalone
     ? undefined
     : inGroup
@@ -55,7 +57,9 @@ export default async function CouncilPage({
   return (
     <>
       <div className="crumbs">
-        {doc.group === "boumis" ? (
+        {doc.group === "ekkanon" ? (
+          <Link href="/canon-law">← კანონიკური სამართალი (მჭედლიშვილი)</Link>
+        ) : doc.group === "boumis" ? (
           <Link href="/boumis">← კანონიკური სამართალი</Link>
         ) : inGroup ? (
           <Link href="/church-law">← საქართველოს ეკლესიის სამართალი</Link>
@@ -64,6 +68,7 @@ export default async function CouncilPage({
         )}
       </div>
       <h1 className="reader-title">{doc.title}</h1>
+      {doc.group === "ekkanon" && <BuyBook />}
       <Reader
         docId={doc.id}
         html={getDocHtml(id)}

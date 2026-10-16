@@ -173,10 +173,13 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     if (gr.first < 0) gr.first = idx;
   };
   for (const h of hits) addChunk(h.idx, h.score);
-  // ბუმისის წიგნი: თუ ძირითად ტოპ-60-ში არ მოხვდა, უფრო ღრმად ვეძებთ, რომ ყოველთვის შემოწმდეს
-  const isBoum = (doc?: number | null) => !!doc && getDoc(doc)?.group === "boumis";
+  // წიგნები, რომლებიც ყოველთვის მონაწილეობს (ბუმისი, მჭედლიშვილი): თუ ტოპ-60-ში არ მოხვდა, უფრო ღრმად ვეძებთ
+  const grpOf = (doc?: number | null) => (doc ? getDoc(doc)?.group : undefined);
+  const isBoum = (doc?: number | null) => grpOf(doc) === "boumis";
+  const isEk = (doc?: number | null) => grpOf(doc) === "ekkanon";
   const reserve = !opts.excludeHidden;
-  if (reserve) for (const h of bm25(query, 400)) if (isBoum(ix.chunks[h.idx].doc) && !hits.some((x) => x.idx === h.idx)) addChunk(h.idx, h.score);
+  const protectedSet = new Set<string>();
+  if (reserve) for (const h of bm25(query, 500)) if ((isBoum(ix.chunks[h.idx].doc) || isEk(ix.chunks[h.idx].doc)) && !hits.some((x) => x.idx === h.idx)) addChunk(h.idx, h.score);
   const top = hits[0]?.score ?? 10;
   const refs = directRefs(query);
   const pureRef = query.trim().split(/\s+/).length <= 4; // "მოციქულთა 35-ე კანონი"
@@ -191,7 +194,7 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
   const all = [...groups.entries()].sort((a, b) => b[1].score - a[1].score);
   let ranked = all.slice(0, maxGroups);
   if (reserve) {
-    // ყოველთვის: მინიმუმ 2 ბუმისის და 2 ნიკოდიმოსის (მილაშის) განმარტების ჯგუფი
+    // ყოველთვის: მინიმუმ 2 მჭედლიშვილის, 2 ბუმისის და 2 ნიკოდიმოსის (მილაშის) განმარტების ჯგუფი
     const hasNik = (g: G, key: string) => g.nik.size > 0 || (ix.nikMap.get(key)?.length ?? 0) > 0;
     const need = (pred: (e: [string, G]) => boolean, min: number) => {
       const have = ranked.filter(pred).length;
@@ -203,11 +206,13 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
         protectedSet.add(e[0]);
       }
     };
-    const protectedSet = new Set<string>();
-    ranked.filter((e) => isBoum(e[1].doc)).forEach((e) => protectedSet.add(e[0]));
+    ranked.filter((e) => isEk(e[1].doc)).slice(0, 2).forEach((e) => protectedSet.add(e[0]));
+    need((e) => isEk(e[1].doc), 2);
+    ranked.filter((e) => isBoum(e[1].doc)).slice(0, 2).forEach((e) => protectedSet.add(e[0]));
     need((e) => isBoum(e[1].doc), 2);
-    ranked.filter((e) => hasNik(e[1], e[0]) && !isBoum(e[1].doc)).slice(0, 2).forEach((e) => protectedSet.add(e[0]));
-    need((e) => !isBoum(e[1].doc) && hasNik(e[1], e[0]), 2);
+    const plainNik = (e: [string, G]) => !isBoum(e[1].doc) && !isEk(e[1].doc) && hasNik(e[1], e[0]);
+    ranked.filter(plainNik).slice(0, 2).forEach((e) => protectedSet.add(e[0]));
+    need(plainNik, 2);
     ranked.sort((a, b) => b[1].score - a[1].score);
   }
   const sources: Source[] = [];
@@ -218,7 +223,7 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     nikIdx = nikIdx.slice(0, 2);
     const passages: { head: string; text: string }[] = [];
     const gdoc = gr.doc ? getDoc(gr.doc) : undefined;
-    const sjHead = gdoc && (gdoc.group === "mcire" || gdoc.group === "churchlaw" || gdoc.group === "synod" || gdoc.group === "boumis") ? gdoc.title : "კანონის ტექსტი (დიდი სჯული)";
+    const sjHead = gdoc && (gdoc.group === "mcire" || gdoc.group === "churchlaw" || gdoc.group === "synod" || gdoc.group === "boumis" || gdoc.group === "ekkanon") ? gdoc.title : "კანონის ტექსტი (დიდი სჯული)";
     for (const i of sjIdx.slice(0, 2)) passages.push({ head: sjHead, text: ix.chunks[i].text });
     for (const i of nikIdx) {
       const c = ix.chunks[i];
@@ -227,7 +232,7 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
     if (!passages.length && gr.first >= 0) passages.push({ head: "", text: ix.chunks[gr.first].text });
     if (!passages.length) continue;
     const size = passages.reduce((s, p) => s + p.text.length, 0);
-    if (used + size > maxChars && sources.length >= 3) continue;
+    if (used + size > maxChars && sources.length >= 3 && !protectedSet.has(key)) continue;
     used += size;
     const ref = ix.chunks[sjIdx[0] ?? nikIdx[0] ?? gr.first];
     const dt = shortTitle(docTitle(gr.doc) || ref?.title || "");

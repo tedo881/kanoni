@@ -18,7 +18,11 @@ export default function Councils() {
       />
       {groups
         .filter(
-          (g) => g.id !== "churchlaw" && g.id !== "synod" && g.id !== "boumis",
+          (g) =>
+            g.id !== "churchlaw" &&
+            g.id !== "synod" &&
+            g.id !== "boumis" &&
+            g.id !== "ekkanon",
         )
         .map((g) => (
           <section key={g.id}>

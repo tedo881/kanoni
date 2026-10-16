@@ -10,7 +10,8 @@ export default function Home() {
       d.group !== "mcire" &&
       d.group !== "churchlaw" &&
       d.group !== "synod" &&
-      d.group !== "boumis",
+      d.group !== "boumis" &&
+      d.group !== "ekkanon",
   );
   const titles = Object.fromEntries(
     all
@@ -53,6 +54,10 @@ export default function Home() {
             <small>სამეცნიერო სახელმძღვანელო · 14 თავი</small>
           </Link>
         )}
+        <Link href="/canon-law" className="btn-grad">
+          მართლმადიდებელი ეკლესიის კანონიკური სამართალი
+          <small>დეკ. ზურაბ მჭედლიშვილი · შესავალი და 16 ნაწილი</small>
+        </Link>
         <Link href="/nikodim" className="btn-grad">
           ნიკოდიმოს მილაშის განმარტებები
           <small>მართლმადიდებელი ეკლესიის კანონები · ტომი I და II</small>
