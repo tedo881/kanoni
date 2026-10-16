@@ -133,7 +133,7 @@ function shortTitle(t: string) {
   return t.replace(/\s*საეკლესიო\s*/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function retrieve(query: string, opts: { groups?: number; maxChars?: number; includeOld?: boolean; excludeHidden?: boolean } = {}): Source[] {
+export function retrieve(query: string, opts: { groups?: number; maxChars?: number; includeOld?: boolean; excludeHidden?: boolean; ekMin?: number } = {}): Source[] {
   const ix = getIndex();
   // ძველქართულენოვანი ტექსტები (დოკ. 46) მხოლოდ საძიებო გვერდზეა; ასისტენტი თანამედროვე ტექსტს იყენებს
   const oldDocs = new Set((getDocs().docs as Doc[]).filter((d) => d.old).map((d) => d.id));
@@ -206,8 +206,9 @@ export function retrieve(query: string, opts: { groups?: number; maxChars?: numb
         protectedSet.add(e[0]);
       }
     };
-    ranked.filter((e) => isEk(e[1].doc)).slice(0, 2).forEach((e) => protectedSet.add(e[0]));
-    need((e) => isEk(e[1].doc), 2);
+    const ekMin = opts.ekMin ?? 2;
+    ranked.filter((e) => isEk(e[1].doc)).slice(0, ekMin).forEach((e) => protectedSet.add(e[0]));
+    need((e) => isEk(e[1].doc), ekMin);
     ranked.filter((e) => isBoum(e[1].doc)).slice(0, 2).forEach((e) => protectedSet.add(e[0]));
     need((e) => isBoum(e[1].doc), 2);
     const plainNik = (e: [string, G]) => !isBoum(e[1].doc) && !isEk(e[1].doc) && hasNik(e[1], e[0]);

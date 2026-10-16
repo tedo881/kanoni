@@ -11,7 +11,7 @@ export type Msg = { role: "system" | "user" | "assistant"; content: string };
 const DEFAULT_BASE = "http://localhost:11434/v1"; // ლოკალური Ollama (`npm run setup:ai`)
 const DEFAULT_LOCAL_MODEL = "kanoni-gemma";
 
-type Provider = { base: string; key?: string; header: string; query: string; model: string; local: boolean; native: boolean };
+type Provider = { base: string; key?: string; header: string; query: string; model: string; local: boolean; native: boolean; maxChars: number };
 
 const isLocalUrl = (u: string) => /localhost|127\.0\.0\.1|\[::1\]/.test(u);
 
@@ -33,6 +33,8 @@ function fromEnv(prefix: "LLM" | "LLM2"): Provider | null {
     query: e[`${prefix}_QUERY_PARAMS`] ? `?${e[`${prefix}_QUERY_PARAMS`]}` : "",
     model: e[`${prefix}_MODEL`] || (local ? DEFAULT_LOCAL_MODEL : "gpt-4o-mini"),
     local,
+    // სარეზერვო პროვაიდერს (მაგ. Groq-ის უფასო გეგმა) მცირე ლიმიტი აქვს — მასალას მისთვის ვამცირებთ (0 = შეუზღუდავი)
+    maxChars: Number(e[`${prefix}_MAX_CHARS`]) || (prefix === "LLM2" && !local ? 5000 : 0),
   };
 }
 const providers = (): Provider[] => [fromEnv("LLM"), fromEnv("LLM2")].filter((p): p is Provider => !!p);
@@ -203,6 +205,30 @@ export async function complete(messages: Msg[], timeoutMs = 9000, onAttempt?: At
  */
 export type StreamOpts = { deadline?: number; firstByteMs?: number };
 
+/** ბოლო მომხმარებლის შეტყობინებაში „ფრაგმენტებს“ ვამოკლებთ max სიმბოლომდე (წყაროები მნიშვნელობის რიგით რჩება) */
+function fitMessages(messages: Msg[], max: number): Msg[] {
+  if (!max) return messages;
+  const li = messages.length - 1;
+  const last = messages[li];
+  if (!last || last.role !== "user") return messages;
+  const m = last.content.match(/^ფრაგმენტები:\n\n([\s\S]*?)\n\n-----\nკითხვა: ([\s\S]*)$/);
+  if (!m || m[1].length <= max) return messages;
+  const keep: string[] = [];
+  let used = 0;
+  for (const b of m[1].split("\n\n=====\n\n")) {
+    if (used + b.length > max) {
+      if (!keep.length) keep.push(b.slice(0, max)); // პირველი წყარო მაინც დარჩეს
+      break;
+    }
+    keep.push(b);
+    used += b.length;
+  }
+  const trimmed: Msg = { ...last, content: `ფრაგმენტები:\n\n${keep.join("\n\n=====\n\n")}\n\n-----\nკითხვა: ${m[2]}` };
+  // ისტორიასაც ვამოკლებთ (ბოლო 2 შეტყობინება)
+  const hist = messages.slice(0, li).filter((x) => x.role !== "system");
+  return [...messages.filter((x) => x.role === "system"), ...hist.slice(-2), trimmed];
+}
+
 export async function* streamChat(messages: Msg[], signal?: AbortSignal, onAttempt?: AttemptHook, opts: StreamOpts = {}): AsyncGenerator<string> {
   const cands = candidates();
   if (!cands.length) throw new LlmError("AI მოდელი არ არის მიერთებული");
@@ -212,7 +238,8 @@ export async function* streamChat(messages: Msg[], signal?: AbortSignal, onAttem
   let lastStatus = 0;
   outer: for (const c of cands) {
     const { p, model } = c;
-    let cur = messages;
+    const base = fitMessages(messages, p.maxChars);
+    let cur = base;
     let softened = false;
     for (let attempt = 0; attempt < 2; attempt++) {
       const remain = deadline - Date.now();
@@ -287,8 +314,8 @@ export async function* streamChat(messages: Msg[], signal?: AbortSignal, onAttem
         if (!softened && /RECITATION|SAFETY|PROHIBITED|content_filter/i.test(why)) {
           softened = true;
           errs.push(`[${model}] ცარიელი პასუხი (${why}) — ვიმეორებ შერბილებული მოთხოვნით`);
-          cur = messages.map((m, i) =>
-            i === messages.length - 1 && m.role === "user"
+          cur = base.map((m, i) =>
+            i === base.length - 1 && m.role === "user"
               ? { ...m, content: m.content + "\n\n(შენიშვნა: პასუხი შეადგინე საკუთარი სიტყვებით და მხოლოდ მოკლე ციტატებით; დიდი ტექსტი სიტყვასიტყვით არ გადმოწერო.)" }
               : m,
           );
