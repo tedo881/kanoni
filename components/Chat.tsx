@@ -53,7 +53,12 @@ function inline(text: string, msgIdx: number): ReactNode[] {
 }
 
 function Answer({ text, idx }: { text: string; idx: number }) {
-  const blocks = text.split(/\n{2,}/);
+  // ზოგი მოდელი (Groq/gpt-oss) სიტყვებს შორის არატეხვად ინტერვალს სვამს — ტექსტი აღარ იმტვრევა და გადის ზღვარს
+  const blocks = text
+    .replace(/[\u00A0\u202F\u2007\u2060\uFEFF\u200B]/g, (c) =>
+      c === "\u2060" || c === "\uFEFF" || c === "\u200B" ? "" : " ",
+    )
+    .split(/\n{2,}/);
   return (
     <>
       {blocks.map((b, i) => {
