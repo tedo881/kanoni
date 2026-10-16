@@ -217,7 +217,7 @@ function fitMessages(messages: Msg[], max: number): Msg[] {
   let used = 0;
   for (const b of m[1].split("\n\n=====\n\n")) {
     if (used + b.length > max) {
-      if (!keep.length) keep.push(b.slice(0, max)); // პირველი წყარო მაინც დარჩეს
+      if (!keep.length) keep.push(b.slice(0, Math.max(max, 4500))); // პირველი წყარო (ნათესაობის ცნობარიც) მაინც დარჩეს
       break;
     }
     keep.push(b);

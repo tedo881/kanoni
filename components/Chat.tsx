@@ -1,4 +1,5 @@
 "use client";
+import Mic from "./Mic";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -425,6 +426,20 @@ export default function Chat() {
                 e.preventDefault();
                 send(input);
               }
+            }}
+          />
+          <Mic
+            disabled={busy}
+            getValue={() => input}
+            setValue={(v) => {
+              setInput(v);
+              requestAnimationFrame(() => {
+                const a = area.current;
+                if (a) {
+                  a.style.height = "auto";
+                  a.style.height = Math.min(a.scrollHeight, 160) + "px";
+                }
+              });
             }}
           />
           {busy ? (
