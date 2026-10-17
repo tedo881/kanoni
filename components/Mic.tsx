@@ -131,7 +131,14 @@ export default function Mic({
       else setErr("ხმა არ ისმის, სცადეთ თავიდან.");
     } catch (e) {
       console.error("[mic]", e);
-      setErr("ამოცნობა ვერ მოხერხდა.");
+      const m = e instanceof Error ? e.message : "";
+      setErr(
+        /STT_API_KEY|გრძელია/.test(m)
+          ? m
+          : m === "empty"
+            ? "ხმა არ ჩაიწერა, სცადეთ თავიდან."
+            : "ამოცნობა ვერ მოხერხდა.",
+      );
     } finally {
       setState("idle");
     }
