@@ -25,12 +25,15 @@ export async function POST(req: NextRequest) {
   if (!text) return NextResponse.json({ error: "ცარიელი ტექსტი" }, { status: 400 });
   text = text.slice(0, MAX_CHARS);
 
+  // სურვილისამებრ: TTS_STYLE (მაგ. „ისაუბრე მშვიდად და თავდაჯერებულად:“) — ემატება ტექსტის წინ
+  const style = (process.env.TTS_STYLE || "").trim();
+  if (style) text = `${style} ${text}`;
   const model = process.env.TTS_MODEL || "gemini-2.5-flash-preview-tts";
   const body = {
     contents: [{ role: "user", parts: [{ text }] }],
     generationConfig: {
       responseModalities: ["AUDIO"],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: process.env.TTS_VOICE || "Kore" } } },
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: process.env.TTS_VOICE || "Charon" } } },
     },
   };
   try {
