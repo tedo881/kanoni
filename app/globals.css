@@ -401,6 +401,7 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .lp-ask input { width: 100%; padding: 15px 20px; border: 0; border-radius: 14px; background: #fff; color: #222; font-size: 1.02rem; box-shadow: 0 6px 20px rgba(10, 15, 70, 0.28); outline: 0; }
 .lp-ask input:focus { box-shadow: 0 0 0 3px var(--gold), 0 6px 20px rgba(10, 15, 70, 0.28); }
 .lp-btns { display: flex; gap: 10px; margin-top: 12px; }
+@media (max-width: 560px) { .lp-btns { flex-direction: column; } .lp-btns .lp-cta, .lp-btns .lp-ghost { flex: none; width: 100%; } }
 .lp-btns .lp-cta, .lp-btns .lp-ghost { flex: 1; justify-content: center; border: 0; cursor: pointer; font: inherit; font-weight: 700; }
 .lp-btns .lp-ghost { border: 1px solid rgba(255, 255, 255, 0.55); background: rgba(255, 255, 255, 0.08); color: #fff; }
 .lp-hint { margin: 10px 2px 0; font-size: 0.8rem; line-height: 1.5; color: rgba(255, 255, 255, 0.78); }
