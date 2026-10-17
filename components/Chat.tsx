@@ -29,6 +29,8 @@ type M = {
   notes?: string[];
 };
 
+const KEY = "kanoni-chat-v1";
+
 const SUGGESTIONS = [
   "შეუძლია თუ არა მღვდელს მეორედ დაქორწინება?",
   "რა სასჯელი ადევს ფულით ხელდასხმას (სიმონიას)?",
@@ -164,7 +166,18 @@ export default function Chat() {
     if (stick.current) bottom.current?.scrollIntoView({ block: "end" });
   }, [msgs]);
 
+  // საუბარი ინახება ბრაუზერის სესიაში — წყაროზე გადასვლისა და უკან დაბრუნებისას არ იკარგება
+  useEffect(() => {
+    if (!msgs.length) return;
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify(msgs));
+    } catch {}
+  }, [msgs]);
+
   function reset() {
+    try {
+      sessionStorage.removeItem(KEY);
+    } catch {}
     abort.current?.abort(); // მიმდინარე პასუხი შეწყდეს
     setMsgs([]);
     setInput("");
@@ -281,7 +294,7 @@ export default function Chat() {
     }
   }
 
-  // მთავარი გვერდიდან მოსული კითხვა (?q=…) ავტომატურად იგზავნება
+  // მთავარი გვერდიდან მოსული კითხვა (?q=…) ავტომატურად იგზავნება; სხვა შემთხვევაში წინა საუბარი აღდგება
   const auto = useRef(false);
   useEffect(() => {
     if (auto.current) return;
@@ -293,6 +306,31 @@ export default function Chat() {
         u.searchParams.delete("q");
         window.history.replaceState(null, "", u.pathname + u.search);
         void send(q);
+        return;
+      }
+    } catch {}
+    try {
+      const raw = sessionStorage.getItem(KEY);
+      if (raw) {
+        const saved: M[] = JSON.parse(raw);
+        if (Array.isArray(saved) && saved.length) {
+          setMsgs(
+            saved.map((m, i) => {
+              const last = i === saved.length - 1;
+              const cut = last && m.role === "assistant" && m.pending; // გვერდიდან გასვლისას შეწყვეტილი პასუხი
+              return {
+                ...m,
+                pending: false,
+                ...(cut && !m.content
+                  ? { error: "სერვერი გადატვირთულია, სცადეთ მოგვიანებით." }
+                  : {}),
+              };
+            }),
+          );
+          requestAnimationFrame(() =>
+            window.scrollTo({ top: document.documentElement.scrollHeight }),
+          );
+        }
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
