@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
-const MAX_CHARS = 1200;
+const MAX_CHARS = 900;
 
 /** PCM (s16le, 24kHz, mono) → WAV */
 function wav(pcm: Buffer, rate = 24000) {
@@ -25,17 +25,12 @@ export async function POST(req: NextRequest) {
   if (!text) return NextResponse.json({ error: "ცარიელი ტექსტი" }, { status: 400 });
   text = text.slice(0, MAX_CHARS);
 
-  // სურვილისამებრ: TTS_STYLE (მაგ. „ისაუბრე მშვიდად და თავდაჯერებულად:“) — ემატება ტექსტის წინ
-  const style = (process.env.TTS_STYLE || "").trim();
-  if (style) text = `${style} ${text}`;
   const model = process.env.TTS_MODEL || "gemini-2.5-flash-preview-tts";
   const body = {
     contents: [{ role: "user", parts: [{ text }] }],
     generationConfig: {
-      temperature: 0.3, // ნაკლები ვარიაცია ნაწილებს შორის — ხმა უფრო თანაბარია
-      seed: 7,
       responseModalities: ["AUDIO"],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: process.env.TTS_VOICE || "Charon" } } },
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: process.env.TTS_VOICE || "Kore" } } },
     },
   };
   try {
@@ -43,7 +38,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(50_000),
+      signal: AbortSignal.timeout(25_000),
     });
     if (!r.ok) {
       console.error("[speak]", r.status, (await r.text()).slice(0, 300));
