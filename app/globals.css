@@ -69,7 +69,7 @@ main.wrap > :first-child:not(.hero-img) { margin-top: 24px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; font-size: 1.05rem; margin-right: auto; }
 .brand { white-space: nowrap; }
 .brand img { display: block; border-radius: 0; box-shadow: none; border: 0; height: 34px; width: auto; }
-.site-header .wrap { max-width: 1100px; flex-wrap: nowrap; }
+.site-header .wrap { max-width: 1240px; flex-wrap: nowrap; }
 .navwrap { display: contents; }
 .navwrap .burger { display: none; }
 .nav { display: flex; gap: 2px; flex-wrap: nowrap; white-space: nowrap; }
@@ -418,3 +418,9 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .speak-err { margin-left: 8px; font-size: 0.82rem; color: #b3261e; }
 .lp-hero-search { grid-column: 1 / -1; position: relative; z-index: 1; }
 .lp-hero-search .lp-ask { max-width: none; }
+
+/* მთავარი გვერდი ჰედერის სიგანეზეა: ლოგოდან ბოლო ღილაკამდე */
+body:has(.lp) main.wrap { max-width: 1240px; }
+.lp-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.lp-hero { padding: 48px 44px; }
+@media (max-width: 640px) { .lp-hero { padding: 26px 18px; } }
