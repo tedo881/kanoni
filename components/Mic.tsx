@@ -15,28 +15,32 @@ type SR = {
 
 const MAX_SEC = 45;
 
-/** ნებისმიერი აუდიო → 16kHz mono WAV (Gemini-ს სჭირდება სტანდარტული ფორმატი) */
-async function toWav(blob: Blob): Promise<Blob> {
-  const AC = window.AudioContext || (window as any).webkitAudioContext;
-  const ctx = new AC();
-  const audio = await ctx.decodeAudioData(await blob.arrayBuffer());
-  ctx.close?.();
-  const rate = 16000;
-  const off = new OfflineAudioContext(
-    1,
-    Math.max(1, Math.ceil(audio.duration * rate)),
-    rate,
-  );
-  const src = off.createBufferSource();
-  src.buffer = audio;
-  src.connect(off.destination);
-  src.start();
-  const pcm = (await off.startRendering()).getChannelData(0);
-  const out = new DataView(new ArrayBuffer(44 + pcm.length * 2));
-  const w = (o: number, s: string) =>
-    [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+/** Float32 PCM (ნებისმიერი სიხშირე) → 16kHz mono WAV (Gemini-ს სჭირდება სტანდარტული ფორმატი) */
+function pcmToWav(bufs: Float32Array[], inRate: number): Blob {
+  let n = 0;
+  for (const b of bufs) n += b.length;
+  const all = new Float32Array(n);
+  let o = 0;
+  for (const b of bufs) {
+    all.set(b, o);
+    o += b.length;
+  }
+  const rate = 16000,
+    ratio = inRate / rate,
+    len = Math.floor(all.length / ratio);
+  const pcm = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    const a = Math.floor(i * ratio),
+      z = Math.min(all.length, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    for (let k = a; k < z; k++) sum += all[k];
+    pcm[i] = z > a ? sum / (z - a) : (all[a] ?? 0);
+  }
+  const out = new DataView(new ArrayBuffer(44 + len * 2));
+  const w = (off: number, str: string) =>
+    [...str].forEach((c, i) => out.setUint8(off + i, c.charCodeAt(0)));
   w(0, "RIFF");
-  out.setUint32(4, 36 + pcm.length * 2, true);
+  out.setUint32(4, 36 + len * 2, true);
   w(8, "WAVEfmt ");
   out.setUint32(16, 16, true);
   out.setUint16(20, 1, true);
@@ -46,11 +50,18 @@ async function toWav(blob: Blob): Promise<Blob> {
   out.setUint16(32, 2, true);
   out.setUint16(34, 16, true);
   w(36, "data");
-  out.setUint32(40, pcm.length * 2, true);
-  for (let i = 0; i < pcm.length; i++)
+  out.setUint32(40, len * 2, true);
+  for (let i = 0; i < len; i++)
     out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
   return new Blob([out], { type: "audio/wav" });
 }
+
+type Pcm = {
+  ctx: AudioContext;
+  proc: ScriptProcessorNode;
+  src: MediaStreamAudioSourceNode;
+  bufs: Float32Array[];
+};
 
 export default function Mic({
   getValue,
@@ -67,7 +78,7 @@ export default function Mic({
   const [err, setErr] = useState("");
   const [ok, setOk] = useState(false);
   const rec = useRef<SR | null>(null);
-  const mr = useRef<MediaRecorder | null>(null);
+  const pcm = useRef<Pcm | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const useNative = useRef(true); // Web Speech ჯერ; ჩავარდნისას ჩაწერა+Gemini
@@ -78,7 +89,7 @@ export default function Mic({
     );
     return () => {
       rec.current?.abort();
-      stop();
+      stop(true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -86,19 +97,55 @@ export default function Mic({
   const join = (base: string, t: string) =>
     (base && t ? base.replace(/\s+$/, "") + " " : base) + t;
 
-  function stop() {
+  /** ჩაწერის შეწყვეტა; send=false → ჩანაწერი იგდება (გვერდიდან გასვლა) */
+  function stop(discard = false) {
     if (timer.current) clearTimeout(timer.current);
-    if (mr.current && mr.current.state !== "inactive") mr.current.stop();
+    const p = pcm.current;
+    pcm.current = null;
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;
+    if (!p) return;
+    p.proc.onaudioprocess = null;
+    try {
+      p.src.disconnect();
+      p.proc.disconnect();
+    } catch {}
+    const rate = p.ctx.sampleRate;
+    p.ctx.close?.().catch?.(() => {});
+    if (!discard) void transcribe(p.bufs, rate);
+  }
+
+  async function transcribe(bufs: Float32Array[], rate: number) {
+    setState("processing");
+    try {
+      if (!bufs.length) throw new Error("empty");
+      const wav = pcmToWav(bufs, rate);
+      const res = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "audio/wav" },
+        body: wav,
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      if (j.text) setValue(join(getValue(), j.text));
+      else setErr("ხმა არ ისმის, სცადეთ თავიდან.");
+    } catch (e) {
+      console.error("[mic]", e);
+      setErr("ამოცნობა ვერ მოხერხდა.");
+    } finally {
+      setState("idle");
+    }
   }
 
   function startNative(): boolean {
     const C =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (!C || isIOS || !useNative.current) return false;
+    // ქართულს Web Speech მხოლოდ Chrome/Edge-ში ცნობს; Safari-ში (Mac/iPhone) ჩაწერა + Gemini
+    const ua = navigator.userAgent;
+    const chromium =
+      /Chrome\/|Edg\/|CriOS/.test(ua) && !/iPad|iPhone|iPod/.test(ua);
+    if (!C || !chromium || !useNative.current) return false;
     const r: SR = new C();
     r.lang = "ka-GE";
     r.interimResults = true;
@@ -116,8 +163,9 @@ export default function Mic({
     r.onerror = (e: any) => {
       failed = true;
       if (
-        e.error === "language-not-supported" ||
-        e.error === "service-not-allowed"
+        e.error !== "not-allowed" &&
+        e.error !== "no-speech" &&
+        e.error !== "aborted"
       ) {
         useNative.current = false;
         setErr("");
@@ -145,42 +193,35 @@ export default function Mic({
     }
   }
 
+  // ჩაწერა პირდაპირ AudioContext-ით (MediaRecorder/decodeAudioData iPhone-ზე არასანდოა)
   async function startRecorder() {
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    let ctx: AudioContext | null = null;
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      ctx = new AC();
+      void ctx.resume?.(); // iOS-ზე უნდა დაიწყოს ღილაკზე დაჭერისას, სანამ await-ს მივაწვდით
+      const s = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
       stream.current = s;
-      const chunks: Blob[] = [];
-      const m = new MediaRecorder(s);
-      mr.current = m;
-      m.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-      m.onstop = async () => {
-        s.getTracks().forEach((t) => t.stop());
-        setState("processing");
-        try {
-          const wav = await toWav(
-            new Blob(chunks, { type: m.mimeType || "audio/webm" }),
-          );
-          const res = await fetch("/api/transcribe", {
-            method: "POST",
-            headers: { "Content-Type": "audio/wav" },
-            body: wav,
-          });
-          const j = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
-          if (j.text) setValue(join(getValue(), j.text));
-          else setErr("ხმა არ ისმის, სცადეთ თავიდან.");
-        } catch (e) {
-          console.error("[mic]", e);
-          setErr("ამოცნობა ვერ მოხერხდა.");
-        } finally {
-          setState("idle");
-        }
+      await ctx.resume?.();
+      const src = ctx.createMediaStreamSource(s);
+      const proc = ctx.createScriptProcessor(4096, 1, 1);
+      const bufs: Float32Array[] = [];
+      proc.onaudioprocess = (e) => {
+        bufs.push(new Float32Array(e.inputBuffer.getChannelData(0)));
       };
-      m.start();
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      src.connect(proc);
+      proc.connect(mute);
+      mute.connect(ctx.destination);
+      pcm.current = { ctx, proc, src, bufs };
       setState("listening");
       timer.current = setTimeout(() => stop(), MAX_SEC * 1000);
     } catch (e) {
       console.error("[mic]", e);
+      ctx?.close?.().catch?.(() => {});
       setErr("მიკროფონზე წვდომა დაბლოკილია — ბრაუზერის პარამეტრებში ჩართეთ.");
       setState("idle");
     }
