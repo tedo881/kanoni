@@ -94,7 +94,7 @@ export default function Speak({ text }: { text: string }) {
   }
 
   async function playGemini(id: number) {
-    const parts = chunks(clean(text), 1100);
+    const parts = chunks(clean(text), 600);
     if (!parts.length) return;
     const c = (ctl.current = new AbortController());
     const fetchPart = async (p: string) => {
