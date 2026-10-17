@@ -1,5 +1,6 @@
 "use client";
 import Mic from "./Mic";
+import Speak from "./Speak";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -325,6 +326,9 @@ export default function Chat() {
                 <>
                   {(m.stage || m.pending) && !m.info && <Steps m={m} />}
                   {m.content ? <Answer text={m.content} idx={i} /> : null}
+                  {m.content && !m.pending && !m.error ? (
+                    <Speak text={m.content} />
+                  ) : null}
                   {m.info && <div className="notice">{m.info}</div>}
                   {m.error && (
                     <div className="notice error" role="alert">

@@ -411,3 +411,7 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .lp-field .mic:disabled { opacity: 0.5; cursor: default; }
 .lp-field .mic.on { background: #d93025; color: #fff; animation: micpulse 1.2s ease-in-out infinite; }
 .lp-field .mic-err { position: static; display: block; margin-top: 8px; text-align: left; color: #ffd6d3; font-size: 0.82rem; }
+
+.speak { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.speak:hover { border-color: var(--primary); color: var(--link); }
+.speak.on { background: var(--primary); border-color: var(--primary); color: #fff; }
