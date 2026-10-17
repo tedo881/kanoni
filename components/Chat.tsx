@@ -32,6 +32,7 @@ const SUGGESTIONS = [
   "შეუძლია თუ არა მღვდელს მეორედ დაქორწინება?",
   "რა სასჯელი ადევს ფულით ხელდასხმას (სიმონიას)?",
   "რამდენი ეპისკოპოსი აკურთხებს ახალ ეპისკოპოსს?",
+  "რას ამბობს ლაოდიკიის კრება შაბათისა და კვირის შესახებ?",
 ];
 
 function inline(text: string, msgIdx: number): ReactNode[] {
@@ -278,6 +279,23 @@ export default function Chat() {
       setBusy(false);
     }
   }
+
+  // მთავარი გვერდიდან მოსული კითხვა (?q=…) ავტომატურად იგზავნება
+  const auto = useRef(false);
+  useEffect(() => {
+    if (auto.current) return;
+    auto.current = true;
+    try {
+      const u = new URL(window.location.href);
+      const q = u.searchParams.get("q");
+      if (q && q.trim()) {
+        u.searchParams.delete("q");
+        window.history.replaceState(null, "", u.pathname + u.search);
+        void send(q);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
