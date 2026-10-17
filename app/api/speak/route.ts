@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
-const MAX_CHARS = 900;
+const MAX_CHARS = 1200;
 
 /** PCM (s16le, 24kHz, mono) → WAV */
 function wav(pcm: Buffer, rate = 24000) {
@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
   const body = {
     contents: [{ role: "user", parts: [{ text }] }],
     generationConfig: {
+      temperature: 0.3, // ნაკლები ვარიაცია ნაწილებს შორის — ხმა უფრო თანაბარია
+      seed: 7,
       responseModalities: ["AUDIO"],
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: process.env.TTS_VOICE || "Charon" } } },
     },
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(50_000),
     });
     if (!r.ok) {
       console.error("[speak]", r.status, (await r.text()).slice(0, 300));
