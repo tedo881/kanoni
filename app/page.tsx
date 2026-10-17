@@ -135,7 +135,7 @@ export default function Home() {
       href: "/nikodim",
       icon: ICONS.comment,
       title: "მართლმადიდებელი ეკლესიის კანონები",
-      text: " ნიკოდიმოს მილაშის განმარტებები · ტომი I და II",
+      text: "ნიკოდიმოს მილაშის განმარტებები · ტომი I და II",
     },
     {
       href: "/parts",
@@ -158,7 +158,6 @@ export default function Home() {
               თანამედროვე კანონიკური სამართალი — ერთ სივრცეში, ძიებით და
               წყაროებზე დაფუძნებული AI ასისტენტით.
             </p>
-            <HeroSearch />
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -168,6 +167,9 @@ export default function Home() {
             width={300}
             height={300}
           />
+          <div className="lp-hero-search">
+            <HeroSearch />
+          </div>
         </section>
 
         <ContinueReading titles={titles} />

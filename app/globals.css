@@ -416,3 +416,5 @@ body:has(.home) .site-footer { background: rgba(10, 14, 70, 0.8); }
 .speak:hover { border-color: var(--primary); color: var(--link); }
 .speak.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 .speak-err { margin-left: 8px; font-size: 0.82rem; color: #b3261e; }
+.lp-hero-search { grid-column: 1 / -1; position: relative; z-index: 1; }
+.lp-hero-search .lp-ask { max-width: none; }
