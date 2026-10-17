@@ -424,3 +424,7 @@ body:has(.lp) main.wrap { max-width: 1240px; }
 .lp-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .lp-hero { padding: 48px 44px; }
 @media (max-width: 640px) { .lp-hero { padding: 26px 18px; } }
+.site-footer p { margin: 0 0 8px; }
+.site-footer p:last-child { margin-bottom: 0; }
+.site-footer a { color: #ffd76a; text-underline-offset: 3px; }
+.site-footer a:hover { color: #fff; }
