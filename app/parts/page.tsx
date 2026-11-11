@@ -10,7 +10,11 @@ export default function Parts() {
   const parts = getParts();
   return (
     <>
-      <Hero src="/img/hero-apostles.webp" alt="თორმეტ მოციქულთა კრების ხატი" title="კანონთა საძიებელი" />
+      <Hero
+        src="/img/hero-apostles.webp"
+        alt="თორმეტ მოციქულთა კრების ხატი"
+        title="კანონთა საძიებელი"
+      />
       <div className="group-title">თემატური სარჩევი</div>
       <ol className="toc">
         {parts.map((p) => (
@@ -19,7 +23,16 @@ export default function Parts() {
               <Cross />
               <span className="num">{p.roman}</span>
               <strong>ნაწილი {p.roman}</strong>
-              <span className="meta" style={{ fontSize: "0.9rem", color: "var(--ink)", fontWeight: 600 }}>{p.title}</span>
+              <span
+                className="meta"
+                style={{
+                  fontSize: "0.9rem",
+                  color: "var(--ink)",
+                  fontWeight: 600,
+                }}
+              >
+                {p.title}
+              </span>
               <span className="meta">{p.chapters.length} თავი</span>
             </Link>
           </li>
